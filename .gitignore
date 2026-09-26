@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+procurement.db
+.env
+*.log

@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign In — AgroProcure | Farmer &amp; Officer Procurement Portal</title>
+<meta name="description" content="Sign in to AgroProcure - AI-powered farmer procurement slot booking and queue management system.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=3.0">
+</head>
+<body>
+
+<div class="login-page">
+  <div class="login-wrapper">
+
+    <!-- Left Panel -->
+    <div class="login-left animate-fade-up">
+      <div class="badge badge-green" style="margin-bottom:14px">
+        <span class="live-dot" style="margin-right:2px"></span> Mandal Agricultural Procurement Portal
+      </div>
+      <h2>Smarter Scheduling,<br><span>Zero Farmer Waiting</span></h2>
+      <p>An AI-powered scheduling and queue management platform forecasting mandi congestion, recommending optimal intake slots, and issuing instant digital tokens.</p>
+
+      <div class="login-features">
+        <div class="login-feature">
+          <div class="login-feature-icon">🧑‍🌾</div>
+          <div><strong>Farmer Self-Service:</strong> 1-click slot booking, digital token pass with QR code, and live queue tracking.</div>
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-icon">🤖</div>
+          <div><strong>ML Forecasting:</strong> Predictive models for farmer arrival counts, waiting duration, and bay congestion.</div>
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-icon">🏛️</div>
+          <div><strong>Officer Floor Operations:</strong> Single-click intake progression, weighbridge dispatch, and CSV reports.</div>
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-icon">📺</div>
+          <div><strong>Public TV Kiosk:</strong> Real-time waiting shed monitor announcing currently called tokens.</div>
+        </div>
+      </div>
+
+      <!-- Verified metrics -->
+      <div style="display:flex;gap:14px;margin-top:32px">
+        <div class="glass-card" style="padding:14px 16px;flex:1;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--primary)">99.4%</div>
+          <div style="font-size:11px;font-weight:600;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.6px;margin-top:2px">System Uptime</div>
+        </div>
+        <div class="glass-card" style="padding:14px 16px;flex:1;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--blue)">-40%</div>
+          <div style="font-size:11px;font-weight:600;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.6px;margin-top:2px">Wait Time Cut</div>
+        </div>
+        <div class="glass-card" style="padding:14px 16px;flex:1;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--violet)">3 Active</div>
+          <div style="font-size:11px;font-weight:600;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.6px;margin-top:2px">ML Models</div>
+        </div>
+      </div>
+
+      <!-- Public Kiosk Button -->
+      <div style="margin-top:24px">
+        <a href="/live-board" target="_blank" class="btn btn-ghost btn-block" style="text-decoration:none;border:1px solid var(--border-strong);background:rgba(255,255,255,0.7)">
+          📺 Open Public Waiting Shed TV Screen (No Login Required) ↗
+        </a>
+      </div>
+    </div>
+
+    <!-- Login Card -->
+    <div class="login-card animate-fade-up">
+      <div class="login-logo">
+        <div class="login-logo-icon">🌾</div>
+        <div class="login-logo-text">
+          <h1>AgroProcure</h1>
+          <p>Procurement Intelligence</p>
+        </div>
+      </div>
+
+      <!-- Dual Role Switcher Tabs -->
+      <div class="role-tabs">
+        <button type="button" class="role-tab-btn farmer-tab {% if active_tab != 'admin' %}active{% endif %}" id="tab-farmer-btn" onclick="switchRole('farmer')">
+          <span>🧑‍🌾</span>
+          <span>Farmer Portal</span>
+        </button>
+        <button type="button" class="role-tab-btn admin-tab {% if active_tab == 'admin' %}active{% endif %}" id="tab-admin-btn" onclick="switchRole('admin')">
+          <span>🏛️</span>
+          <span>Mandi Officer</span>
+        </button>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-container">
+            {% for category, message in messages %}
+              <div class="alert {{ category }}">
+                {% if category == 'success' %}✅{% else %}⚠️{% endif %}
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <!-- ══ FARMER LOGIN FORM ══ -->
+      <div id="farmer-form-section" style="{% if active_tab == 'admin' %}display:none;{% endif %}">
+        <div class="login-heading">Farmer Sign In</div>
+        <div class="login-sub">Enter your Farmer ID or Mobile Number to access your slot pass &amp; queue status</div>
+
+        <form method="post" action="/login/farmer" class="login-form" id="farmer-login-form">
+          <div class="form-group">
+            <label class="form-label">Farmer ID or Registered Mobile Number</label>
+            <div class="form-field">
+              <span class="field-icon">🪪</span>
+              <input
+                type="text"
+                name="identifier"
+                id="farmer-id-input"
+                class="form-control"
+                placeholder="e.g. FRM-2026-200 or 9876543210"
+                required
+                value="{{ identifier or '' }}"
+              >
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Security PIN (4 digits)</label>
+            <div class="form-field">
+              <span class="field-icon">🔒</span>
+              <input
+                type="password"
+                name="pin"
+                id="farmer-pin-input"
+                class="form-control"
+                placeholder="Default: 1234"
+                maxlength="6"
+                value="1234"
+                required
+              >
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="farmer-login-btn">
+            <span>Sign In to Farmer Portal</span>
+          </button>
+        </form>
+
+        <!-- Quick Demo Login Helper for Farmer -->
+        <div style="margin-top:14px;background:var(--primary-light);border:1px solid var(--primary-border);border-radius:var(--radius-md);padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--primary)">⚡ Quick Demo Farmer: Pavan</div>
+            <div style="font-size:11px;color:var(--txt-muted)">ID: FRM-2026-200 · PIN: 1234</div>
+          </div>
+          <button type="button" onclick="fillFarmerDemo()" class="btn btn-sm btn-primary" style="font-size:11.5px;padding:4px 10px">
+            Fill &amp; Test
+          </button>
+        </div>
+
+        <div style="margin-top:18px;text-align:center;padding-top:14px;border-top:1px solid var(--border-soft)">
+          <span style="font-size:13px;color:var(--txt-secondary)">New farmer at this mandal? </span>
+          <a href="/register" style="color:var(--primary);font-weight:700;text-decoration:none;font-size:13px">Register Here ➔</a>
+        </div>
+      </div>
+
+      <!-- ══ OFFICER / ADMIN LOGIN FORM ══ -->
+      <div id="admin-form-section" style="{% if active_tab != 'admin' %}display:none;{% endif %}">
+        <div class="login-heading">Officer Sign In</div>
+        <div class="login-sub">Enter administrative credentials to manage floor intake, weighbridge &amp; analytics</div>
+
+        <form method="post" action="/login/admin" class="login-form" id="admin-login-form">
+          <div class="form-group">
+            <label class="form-label">Officer Username</label>
+            <div class="form-field">
+              <span class="field-icon">👤</span>
+              <input
+                type="text"
+                name="username"
+                id="admin-username-input"
+                class="form-control"
+                placeholder="Username (admin)"
+                required
+                value="{{ username or '' }}"
+              >
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <div class="form-field">
+              <span class="field-icon">🔒</span>
+              <input
+                type="password"
+                name="password"
+                id="admin-password-input"
+                class="form-control"
+                placeholder="Password (admin123)"
+                required
+              >
+            </div>
+            <div style="text-align:right;margin-top:4px">
+              <button type="button" onclick="toggleAdminPwd()" style="background:none;border:none;color:var(--txt-muted);font-size:11.5px;cursor:pointer;padding:0">
+                👁️ Show / Hide password
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="admin-login-btn">
+            <span>Sign In to Officer Portal</span>
+          </button>
+        </form>
+
+        <!-- Quick Demo Login Helper for Admin -->
+        <div style="margin-top:14px;background:var(--blue-light);border:1px solid var(--blue-border);border-radius:var(--radius-md);padding:10px 12px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--blue)">⚡ Quick Demo Officer</div>
+            <div style="font-size:11px;color:var(--txt-muted)">User: admin · Pass: admin123</div>
+          </div>
+          <button type="button" onclick="fillAdminDemo()" class="btn btn-sm btn-ghost" style="font-size:11.5px;padding:4px 10px;border-color:var(--blue);color:var(--blue)">
+            Fill &amp; Test
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function switchRole(role) {
+  const farmerSection = document.getElementById('farmer-form-section');
+  const adminSection = document.getElementById('admin-form-section');
+  const farmerBtn = document.getElementById('tab-farmer-btn');
+  const adminBtn = document.getElementById('tab-admin-btn');
+
+  if (role === 'farmer') {
+    farmerSection.style.display = 'block';
+    adminSection.style.display = 'none';
+    farmerBtn.classList.add('active');
+    adminBtn.classList.remove('active');
+  } else {
+    farmerSection.style.display = 'none';
+    adminSection.style.display = 'block';
+    adminBtn.classList.add('active');
+    farmerBtn.classList.remove('active');
+  }
+}
+
+function fillFarmerDemo() {
+  document.getElementById('farmer-id-input').value = 'FRM-2026-200';
+  document.getElementById('farmer-pin-input').value = '1234';
+}
+
+function fillAdminDemo() {
+  document.getElementById('admin-username-input').value = 'admin';
+  document.getElementById('admin-password-input').value = 'admin123';
+}
+
+function toggleAdminPwd() {
+  const inp = document.getElementById('admin-password-input');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+</script>
+
+</body>
+</html>

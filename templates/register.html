@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Farmer Registration — AgroProcure | Mandal Procurement Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=3.0">
+</head>
+<body>
+
+<div class="login-page">
+  <div class="login-wrapper">
+
+    <!-- Left Info Panel -->
+    <div class="login-left animate-fade-up">
+      <div class="badge badge-green" style="margin-bottom:14px">
+        <span class="live-dot" style="margin-right:2px"></span> Mandal Farmer Registry
+      </div>
+      <h2>Join AgroProcure,<br><span>Zero Wait Times</span></h2>
+      <p>Register once to book guaranteed procurement time windows, receive digital gate tokens, and track real-time weighbridge status directly on your mobile device.</p>
+
+      <div class="login-features">
+        <div class="login-feature">
+          <div class="login-feature-icon">✅</div>
+          <div><strong>Instant Token Issuance:</strong> Guaranteed arrival windows with transparent load capacity.</div>
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-icon">📲</div>
+          <div><strong>SMS Floor Alerts:</strong> Get alerted when your vehicle is called to the weighbridge.</div>
+        </div>
+        <div class="login-feature">
+          <div class="login-feature-icon">⚡</div>
+          <div><strong>Direct MSP Payment:</strong> Verified weighbridge receipts matched to your registered details.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:32px;background:var(--bg-surface);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:18px 22px">
+        <div style="font-weight:700;color:var(--txt-primary);font-size:14px">💡 Documents Required on Delivery Day</div>
+        <div style="font-size:12.5px;color:var(--txt-muted);margin-top:6px;line-height:1.6">
+          1. Original Aadhaar Card<br>
+          2. Bank Passbook copy for DBT payout<br>
+          3. Pattadar Passbook / Land Ownership Record
+        </div>
+      </div>
+    </div>
+
+    <!-- Registration Form Card -->
+    <div class="login-card animate-fade-up">
+      <div class="login-logo">
+        <div class="login-logo-icon">🌾</div>
+        <div class="login-logo-text">
+          <h1>AgroProcure</h1>
+          <p>Mandal Farmer Registration</p>
+        </div>
+      </div>
+
+      <div class="login-heading">Register as a Farmer</div>
+      <div class="login-sub">Create your procurement profile for instant slot booking</div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-container">
+            {% for category, message in messages %}
+              <div class="alert {{ category }}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" action="/register" class="login-form">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <div class="form-field">
+            <span class="field-icon">👤</span>
+            <input type="text" name="farmer_name" class="form-control" placeholder="e.g. Venkata Rao" required autofocus>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mobile Number * (Used for SMS Alerts &amp; Login)</label>
+          <div class="form-field">
+            <span class="field-icon">📱</span>
+            <input type="tel" name="phone" class="form-control" placeholder="10-digit mobile number" required pattern="[0-9]{10}">
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label class="form-label">Village / Mandal *</label>
+            <div class="form-field">
+              <span class="field-icon">🏘️</span>
+              <input type="text" name="village" class="form-control" placeholder="e.g. Kalagotla" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">District</label>
+            <div class="form-field">
+              <span class="field-icon">📍</span>
+              <input type="text" name="district" class="form-control" value="Krishna" readonly>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label class="form-label">Primary Crop</label>
+            <select name="crop" class="form-control">
+              <option value="Paddy" selected>Paddy (వరి)</option>
+              <option value="Maize">Maize (మొక్కజొన్న)</option>
+              <option value="Cotton">Cotton (ప్రత్తి)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">4-Digit Login PIN</label>
+            <div class="form-field">
+              <span class="field-icon">🔒</span>
+              <input type="password" name="pin" class="form-control" value="1234" maxlength="4" placeholder="1234" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Assigned Farmer ID</label>
+          <div class="form-field">
+            <span class="field-icon">🪪</span>
+            <input type="text" name="farmer_id" class="form-control" value="{{ suggested_id }}" readonly style="background:var(--bg-surface-alt);font-weight:700;color:var(--primary)">
+          </div>
+          <small style="font-size:11px;color:var(--txt-muted);margin-top:2px;display:block">This unique ID will identify your consignments at the mandi gate.</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-top:8px">
+          Complete Registration &amp; Open Dashboard ➔
+        </button>
+      </form>
+
+      <div style="margin-top:18px;text-align:center;padding-top:14px;border-top:1px solid var(--border-soft)">
+        <span style="font-size:13px;color:var(--txt-secondary)">Already registered? </span>
+        <a href="/login?tab=farmer" style="color:var(--primary);font-weight:700;text-decoration:none;font-size:13px">Sign In Here ➔</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

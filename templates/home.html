@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — AgroProcure{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- ══ HERO BANNER ════════════════════════════════════════════════ -->
+<section class="hero-3d animate-fade-up">
+  <div style="position:relative;z-index:2">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div class="badge badge-green">
+        <span class="live-dot" style="margin-right:2px"></span> Live Production System
+      </div>
+    </div>
+    <h1>
+      Farmer Procurement<br>
+      <span class="gradient-text">Slot &amp; Queue</span> Management
+    </h1>
+    <p>Enterprise procurement scheduling, intelligent queue dispatching, and ML-driven arrival prediction to streamline mandal operations.</p>
+    <div class="hero-chips">
+      <a href="/recommend" class="hero-chip"><span>🎯</span> Book a Slot</a>
+      <a href="/queue" class="hero-chip"><span>🎟️</span> Token Queue</a>
+      <a href="/predictions" class="hero-chip"><span>🤖</span> ML Forecasts</a>
+      <a href="/analytics" class="hero-chip"><span>📊</span> Analytics &amp; Insights</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══ STAT CARDS ════════════════════════════════════════════════ -->
+<div class="stat-grid">
+  <div class="stat-card green">
+    <div class="stat-trend up">Verified</div>
+    <div class="stat-icon">📋</div>
+    <div class="stat-value" data-count="{{ record_count }}">0</div>
+    <div class="stat-label">Historical Records</div>
+  </div>
+
+  <div class="stat-card cyan delay-100">
+    <div class="stat-trend up">All Time</div>
+    <div class="stat-icon">📅</div>
+    <div class="stat-value" data-count="{{ booking_count }}">0</div>
+    <div class="stat-label">Total Bookings</div>
+  </div>
+
+  <div class="stat-card amber delay-200">
+    <div class="stat-trend {% if open_count > 5 %}down{% else %}up{% endif %}">
+      Active
+    </div>
+    <div class="stat-icon">🎟️</div>
+    <div class="stat-value" data-count="{{ open_count }}">0</div>
+    <div class="stat-label">In-Queue Tokens</div>
+  </div>
+
+  <div class="stat-card violet delay-300">
+    <div class="stat-trend up">Benchmark</div>
+    <div class="stat-icon">⏱️</div>
+    <div class="stat-value" data-count="{{ avg_wait }}" data-suffix=" m">0</div>
+    <div class="stat-label">Historical Avg Wait</div>
+  </div>
+</div>
+
+<!-- ══ MAIN GRID ═════════════════════════════════════════════════ -->
+<div class="grid-2 mb-28">
+
+  <!-- Monthly Arrivals Chart (Fitted Container) -->
+  <div class="chart-wrapper glass-card">
+    <div class="chart-title">
+      <div class="dot"></div>
+      Monthly Farmer Arrivals Trend
+      <span style="margin-left:auto;font-size:12px;color:var(--txt-muted);font-weight:500">Historical average</span>
+    </div>
+    <div class="chart-container" style="position: relative; height: 260px; width: 100%; min-width: 0;">
+      <canvas id="monthlyChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Quick Info & Actions -->
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+
+    <div class="glass-card" style="padding:22px">
+      <div class="section-title" style="margin-bottom:14px">
+        <span>🏢</span> Procurement Centre Overview
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:var(--bg-surface-alt);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:14px">
+          <div style="font-size:11px;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;font-weight:600">Location</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--txt-primary)">Mandal Procurement</div>
+        </div>
+        <div style="background:var(--blue-light);border:1px solid var(--blue-border);border-radius:var(--radius-md);padding:14px">
+          <div style="font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;font-weight:600">Daily Slots</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--blue)">8 Active Slots</div>
+        </div>
+        <div style="background:var(--amber-light);border:1px solid var(--amber-border);border-radius:var(--radius-md);padding:14px">
+          <div style="font-size:11px;color:var(--amber);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;font-weight:600">Slot Capacity</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--amber)">20 – 25 Farmers</div>
+        </div>
+        <div style="background:var(--violet-light);border:1px solid var(--violet-border);border-radius:var(--radius-md);padding:14px">
+          <div style="font-size:11px;color:var(--violet);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;font-weight:600">ML Pipelines</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--violet)">3 Trained Models</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card" style="padding:22px">
+      <div class="section-title" style="margin-bottom:14px">
+        <span>⚡</span> Quick Management Actions
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <a href="/recommend" class="btn btn-primary" style="justify-content:flex-start;gap:10px">
+          <span>🎯</span> Book Farmer Procurement Slot
+        </a>
+        <a href="/queue" class="btn btn-ghost" style="justify-content:flex-start;gap:10px">
+          <span>🎟️</span> Open Token Queue Management
+        </a>
+        <a href="/predictions" class="btn btn-ghost" style="justify-content:flex-start;gap:10px">
+          <span>🤖</span> Run Arrival &amp; Congestion ML Simulation
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ SLOT HEAT MAP ═════════════════════════════════════════════ -->
+<div class="section-title mb-16"><span>🕐</span> Time Slot Activity Heatmap</div>
+<div class="chart-wrapper glass-card mb-28" style="padding:24px">
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+    {% set slot_data = [
+      ('08:00-09:00', 'Peak', 85, 'amber'),
+      ('09:00-10:00', 'Peak', 92, 'rose'),
+      ('10:00-11:00', 'Normal', 58, 'green'),
+      ('11:00-12:00', 'Normal', 62, 'green'),
+      ('12:00-13:00', 'Peak', 78, 'amber'),
+      ('14:00-15:00', 'Normal', 45, 'cyan'),
+      ('15:00-16:00', 'Normal', 52, 'cyan'),
+      ('16:00-17:00', 'Low', 34, 'violet')
+    ] %}
+    {% for slot, label, pct, color in slot_data %}
+    {% set bg_col = 'var(--primary-light)' if color=='green' else ('var(--amber-light)' if color=='amber' else ('var(--rose-light)' if color=='rose' else ('var(--blue-light)' if color=='cyan' else 'var(--violet-light)')))%}
+    {% set brd_col = 'var(--primary-border)' if color=='green' else ('var(--amber-border)' if color=='amber' else ('var(--rose-border)' if color=='rose' else ('var(--blue-border)' if color=='cyan' else 'var(--violet-border)')))%}
+    {% set txt_col = 'var(--primary-active)' if color=='green' else ('var(--amber)' if color=='amber' else ('var(--rose)' if color=='rose' else ('var(--blue)' if color=='cyan' else 'var(--violet)')))%}
+    <div style="
+      flex:1;min-width:110px;max-width:140px;
+      background: #ffffff;
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-md);
+      padding: 14px 12px;
+      text-align: center; cursor: default;
+      transition: all var(--t-fast);
+      box-shadow: var(--shadow-xs);
+    "
+    onmouseover="this.style.borderColor='var(--border-strong)';this.style.boxShadow='var(--shadow-sm)'"
+    onmouseout="this.style.borderColor='var(--border-card)';this.style.boxShadow='var(--shadow-xs)'">
+      <div style="font-size:13px;font-weight:700;color:var(--txt-primary);margin-bottom:4px">{{ slot }}</div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;font-weight:700;color:{{ txt_col }}">
+        {{ label }}
+      </div>
+      <div style="height:6px;background:var(--bg-surface-alt);border-radius:99px;overflow:hidden;margin-bottom:8px">
+        <div style="height:100%;width:{{ pct }}%;border-radius:99px;background:{{ txt_col }};transition:width 0.8s ease;"></div>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--txt-secondary)">{{ pct }}% load</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ══ SYSTEM STATUS ═════════════════════════════════════════════ -->
+<div class="grid-3">
+  <div class="glass-card" style="padding:20px;text-align:center">
+    <div style="font-size:26px;margin-bottom:8px">🤖</div>
+    <div style="font-size:14px;font-weight:700;color:var(--txt-primary);margin-bottom:6px">Arrival Model</div>
+    <div class="badge badge-green" style="margin-bottom:10px"><span class="badge-dot"></span> Operational</div>
+    <div style="font-size:12px;color:var(--txt-muted);line-height:1.5">Random Forest Regressor · Predicts expected farmer arrivals per slot</div>
+  </div>
+  <div class="glass-card" style="padding:20px;text-align:center">
+    <div style="font-size:26px;margin-bottom:8px">⏱️</div>
+    <div style="font-size:14px;font-weight:700;color:var(--txt-primary);margin-bottom:6px">Wait Time Model</div>
+    <div class="badge badge-green" style="margin-bottom:10px"><span class="badge-dot"></span> Operational</div>
+    <div style="font-size:12px;color:var(--txt-muted);line-height:1.5">Gradient Boosting Regressor · Estimates queue waiting duration</div>
+  </div>
+  <div class="glass-card" style="padding:20px;text-align:center">
+    <div style="font-size:26px;margin-bottom:8px">🌡️</div>
+    <div style="font-size:14px;font-weight:700;color:var(--txt-primary);margin-bottom:6px">Congestion Model</div>
+    <div class="badge badge-green" style="margin-bottom:10px"><span class="badge-dot"></span> Operational</div>
+    <div style="font-size:12px;color:var(--txt-muted);line-height:1.5">Random Forest Classifier · Predicts Low, Medium, High congestion</div>
+  </div>
+</div>
+
+<script>
+/* Monthly arrivals chart (Clean Enterprise Light) */
+(function(){
+  const canvas = document.getElementById('monthlyChart');
+  if (!canvas) return;
+
+  const data = {{ monthly | tojson }};
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const labels = Object.keys(data).map(m => months[parseInt(m)-1] || m);
+  const values = Object.values(data);
+
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 240);
+  grad.addColorStop(0, 'rgba(5, 150, 105, 0.20)');
+  grad.addColorStop(1, 'rgba(5, 150, 105, 0.01)');
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Avg Arrivals',
+        data: values,
+        fill: true,
+        backgroundColor: grad,
+        borderColor: '#059669',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#059669',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.35,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#ffffff',
+          borderColor: '#e2e8f0',
+          borderWidth: 1,
+          titleColor: '#0f172a',
+          bodyColor: '#334155',
+          titleFont: { size: 12, weight: '700', family: 'Inter' },
+          bodyFont: { size: 12, family: 'Inter' },
+          padding: 10,
+          boxPadding: 4,
+          displayColors: false,
+          callbacks: {
+            label: ctx => `Avg Arrivals: ${ctx.parsed.y.toFixed(1)} farmers`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#f1f5f9' },
+          ticks: { color: '#64748b', font: { size: 11, family: 'Inter' } },
+          border: { color: '#e2e8f0' }
+        },
+        y: {
+          grid: { color: '#f1f5f9' },
+          ticks: { color: '#64748b', font: { size: 11, family: 'Inter' } },
+          border: { color: '#e2e8f0' }
+        }
+      },
+      animation: {
+        duration: 1000,
+        easing: 'easeInOutQuart'
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

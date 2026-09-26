@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LIVE INTAKE BOARD — Mandal Procurement Centre Waiting Hall</title>
+<meta http-equiv="refresh" content="20">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=3.0">
+<style>
+  body {
+    background: #090e17;
+    color: #f1f5f9;
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+  .tv-glow-box {
+    box-shadow: 0 0 35px rgba(5, 150, 105, 0.25);
+  }
+  .ticker-wrap {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #047857;
+    color: #ffffff;
+    padding: 10px 20px;
+    font-weight: 700;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 100;
+  }
+  @keyframes pulse-live {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+  }
+  .pulsing-dot {
+    width: 12px;
+    height: 12px;
+    background: #34d399;
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-live 1.2s infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="kiosk-wrapper">
+
+  <!-- ══ TOP KIOSK HEADER ══ -->
+  <header class="kiosk-nav">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="font-size:36px">🌾</div>
+      <div>
+        <div style="font-size:13px;letter-spacing:1.5px;color:#34d399;text-transform:uppercase;font-weight:800">
+          Government of Andhra Pradesh · Agriculture Dept
+        </div>
+        <h1 style="font-size:26px;font-weight:900;margin:2px 0 0;color:#ffffff">
+          Mandal Procurement Centre — Live Queue Board
+        </h1>
+        <div style="font-size:13px;color:#94a3b8">
+          మండల వ్యవసాయ కొనుగోలు కేంద్రం · ప్రత్యక్ష టోకెన్ బోర్డు
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Time & Auto-refresh status -->
+    <div style="display:flex;align-items:center;gap:18px">
+      <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:8px 18px;text-align:right">
+        <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px">Mandi Local Time</div>
+        <div style="font-size:24px;font-weight:800;color:#ffffff" id="kiosk-clock">--:--:--</div>
+      </div>
+      <div style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:8px">
+        <span class="pulsing-dot"></span>
+        <span style="font-size:13px;font-weight:700;color:#34d399">TV KIOSK LIVE</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══ HERO: NOW SERVING AT WEIGHBRIDGE ══ -->
+  <div class="kiosk-serving-hero tv-glow-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:14px;margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:24px">⚖️</span>
+        <span style="font-size:18px;font-weight:800;color:#f1f5f9;letter-spacing:.5px;text-transform:uppercase">
+          NOW SERVING AT WEIGHBRIDGE &amp; QUALITY BAY 1
+        </span>
+      </div>
+      <div style="font-size:14px;color:#34d399;font-weight:700">
+        దయచేసి వెంటనే గేట్ 2 వద్దకు రండి (Proceed Immediately to Gate 2)
+      </div>
+    </div>
+
+    {% if data.now_serving %}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:20px">
+        {% for s in data.now_serving %}
+        <div style="background:rgba(15,23,42,0.8);border:2px solid #10b981;border-radius:14px;padding:20px 24px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:.6px">TOKEN NUMBER</span>
+            <span style="background:#10b981;color:#ffffff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:4px">INSPECTION ACTIVE</span>
+          </div>
+          <div class="kiosk-token-giant">#{{ s.token_number }}</div>
+          <div style="font-size:18px;font-weight:800;color:#ffffff;margin-top:4px">{{ s.farmer_name }}</div>
+          <div style="font-size:13px;color:#94a3b8;margin-top:2px">
+            📍 {{ s.village }} · 🌾 {{ s.crop or 'Crop' }} ({{ s.quantity }} Qtl) · 🚜 {{ s.vehicle_type }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;gap:16px">
+        <div style="font-size:42px">🚜</div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:#ffffff">Weighbridge Bay is Clearing Previous Consignment</div>
+          <div style="font-size:14px;color:#94a3b8;margin-top:2px">Next vehicle will be called in approximately 2-3 minutes.</div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ══ TWO COLUMN: UP NEXT QUEUE & MANDI STATS ══ -->
+  <div class="kiosk-grid">
+
+    <!-- Column 1: Calling Queue (Up Next) -->
+    <div class="kiosk-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px">⏳</span>
+          <h2 style="font-size:18px;font-weight:800;color:#ffffff;margin:0">
+            UP NEXT IN WAITING BAY (తదుపరి వాహనాలు)
+          </h2>
+        </div>
+        <span style="font-size:12px;color:#94a3b8">Hold in Bay #2</span>
+      </div>
+
+      <table class="kiosk-table">
+        <thead>
+          <tr>
+            <th>Queue Rank</th>
+            <th>Token</th>
+            <th>Farmer</th>
+            <th>Crop &amp; Load</th>
+            <th>Vehicle</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if data.up_next %}
+            {% for u in data.up_next %}
+            <tr>
+              <td>
+                <span style="font-size:16px;font-weight:900;color:#38bdf8">#{{ loop.index }}</span>
+              </td>
+              <td>
+                <span style="font-size:20px;font-weight:900;color:#34d399">#{{ u.token_number }}</span>
+              </td>
+              <td>
+                <div style="font-weight:700;color:#ffffff">{{ u.farmer_name }}</div>
+                <div style="font-size:11px;color:#94a3b8">{{ u.village }}</div>
+              </td>
+              <td>
+                <span style="font-weight:700;color:#f1f5f9">{{ u.crop or 'Consignment' }}</span>
+                <span style="font-size:12px;color:#94a3b8">({{ u.quantity }} Qtl)</span>
+              </td>
+              <td><span style="color:#cbd5e1">{{ u.vehicle_type }}</span></td>
+              <td>
+                {% if u.status == 'Waiting' %}
+                  <span style="background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;padding:4px 8px;border-radius:6px;font-size:11.5px;font-weight:700">⏳ In Bay</span>
+                {% else %}
+                  <span style="background:rgba(52,211,153,0.2);color:#34d399;border:1px solid #10b981;padding:4px 8px;border-radius:6px;font-size:11.5px;font-weight:700">🚜 Arrived</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="6" style="text-align:center;padding:28px;color:#64748b">
+                All arrived vehicles are currently being weighed or queued.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Column 2: Mandi Real-time Operational Telemetry -->
+    <div>
+      <div class="kiosk-card mb-24">
+        <div style="font-size:13px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">
+          📊 Mandi Floor Telemetry
+        </div>
+
+        <div style="margin-bottom:16px">
+          <div style="font-size:11.5px;color:#94a3b8">Average Turnaround Duration</div>
+          <div style="font-size:32px;font-weight:900;color:#38bdf8;margin-top:2px">~14 Mins</div>
+          <div style="font-size:11.5px;color:#34d399">ML Congestion Index: NORMAL</div>
+        </div>
+
+        <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;margin-bottom:14px">
+          <div style="font-size:11.5px;color:#94a3b8">Total Vehicles Cleared Today</div>
+          <div style="font-size:28px;font-weight:900;color:#34d399;margin-top:2px">{{ data.total_completed }} Deliveries</div>
+        </div>
+
+        <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:14px">
+          <div style="font-size:11.5px;color:#94a3b8">Currently Scheduled Deliveries</div>
+          <div style="font-size:28px;font-weight:900;color:#fbbf24;margin-top:2px">{{ data.total_active }} in Pipeline</div>
+        </div>
+      </div>
+
+      <!-- Quick Advice Box -->
+      <div class="kiosk-card" style="border-color:rgba(52,211,153,0.3);background:rgba(5,150,105,0.1)">
+        <div style="font-size:14px;font-weight:800;color:#34d399;margin-bottom:6px">📢 రైతు సోదరులారా గమనించండి</div>
+        <div style="font-size:12.5px;color:#cbd5e1;line-height:1.5">
+          తూకం వేసే ముందు ఆధార్ కార్డు మరియు బ్యాంకు పాస్‌బుక్ కాపీని సిద్ధంగా ఉంచుకోండి. తేమ శాతం 14% లోపు ఉండాలి.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ══ BOTTOM BILINGUAL NEWS TICKER ══ -->
+<div class="ticker-wrap">
+  <div style="display:flex;align-items:center;gap:12px">
+    <span style="background:#065f46;padding:2px 8px;border-radius:4px;font-size:12px">NOTICE</span>
+    <span>📢 Welcome to Mandal Procurement Centre · All farmers are requested to position vehicles according to token order · Screen refreshes every 20s</span>
+  </div>
+  <div style="font-size:12px;opacity:0.9">
+    Emergency Assistance: Gate 1 Helpdesk
+  </div>
+</div>
+
+<script>
+function updateKioskClock() {
+  const now = new Date();
+  const el = document.getElementById('kiosk-clock');
+  if (el) {
+    el.textContent = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+}
+updateKioskClock();
+setInterval(updateKioskClock, 1000);
+</script>
+
+</body>
+</html>

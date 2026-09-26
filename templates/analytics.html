@@ -1,0 +1,765 @@
+{% extends 'base.html' %}
+{% block title %}Analytics — AgroProcure{% endblock %}
+{% block page_title %}Analytics &amp; Insights{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-header animate-fade-up">
+  <h1>📊 Analytics &amp; <span>Insights</span></h1>
+  <p>Operational data intelligence across crop volumes, procurement demand patterns, slot waiting times, and farmer behavior clusters.</p>
+</div>
+
+<!-- ══ TAB NAV ════════════════════════════════════════════ -->
+<div class="tab-nav animate-fade-up mb-24" id="analytics-tabs">
+  <button class="tab-btn active" onclick="switchTab('crop',this)" id="tab-crop">
+    <span>🌾</span> Crop Volume
+  </button>
+  <button class="tab-btn" onclick="switchTab('demand',this)" id="tab-demand">
+    <span>📈</span> Market Demand
+  </button>
+  <button class="tab-btn" onclick="switchTab('wait',this)" id="tab-wait">
+    <span>⏱️</span> Wait Times
+  </button>
+  <button class="tab-btn" onclick="switchTab('cluster',this)" id="tab-cluster">
+    <span>🧬</span> Cluster Analysis
+  </button>
+  <button class="tab-btn" onclick="switchTab('insights',this)" id="tab-insights">
+    <span>💡</span> Executive Insights
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 1 — CROP VOLUME
+     ══════════════════════════════════════════════════════════ -->
+<div class="tab-panel active" id="panel-crop">
+  <div class="grid-2" style="gap:20px;align-items:start">
+
+    <!-- Bar Chart -->
+    <div class="glass-card" style="padding:22px">
+      <div class="chart-title"><div class="dot"></div> Crop-wise Total Quantity (Quintals)</div>
+      <div class="chart-container" style="position: relative; height: 270px; width: 100%; min-width: 0;">
+        <canvas id="cropChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Breakdown cards -->
+    <div class="glass-card" style="padding:22px">
+      <div class="section-title mb-16"><span>📦</span> Volume Distribution</div>
+      {% set crop_colors = {'Paddy': ('green','🌾','#059669'), 'Maize': ('amber','🌽','#d97706'), 'Cotton': ('cyan','🌿','#2563eb')} %}
+      {% set total_qty = crop.values() | sum %}
+      {% for name, qty in crop | dictsort(by='value', reverse=true) %}
+      {% set ci = crop_colors.get(name, ('violet','🌱','#7c3aed')) %}
+      {% set pct = ((qty / total_qty) * 100) | round(1) %}
+      <div class="crop-row">
+        <div style="font-size:24px">{{ ci[1] }}</div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:13.5px;font-weight:700;color:var(--txt-primary)">{{ name }}</span>
+            <span style="font-size:13px;font-weight:800;color:{{ ci[2] }}">{{ pct }}%</span>
+          </div>
+          <div class="mini-track">
+            <div class="mini-fill" style="width:{{ (qty / (crop.values()|max) * 100)|round|int }}%;background:{{ ci[2] }}"></div>
+          </div>
+          <div style="font-size:11.5px;color:var(--txt-muted);margin-top:4px">{{ qty|int }} of {{ total_qty|int }} quintals</div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Share summary at bottom -->
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-card)">
+        <div style="font-size:11px;font-weight:700;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Summary Share</div>
+        {% for name, qty in crop | dictsort(by='value', reverse=true) %}
+        {% set ci = crop_colors.get(name, ('violet','🌱','#7c3aed')) %}
+        {% set pct = ((qty / total_qty) * 100) | round(1) %}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:10px;height:10px;border-radius:3px;background:{{ ci[2] }}"></div>
+            <span style="font-size:12.5px;color:var(--txt-secondary)">{{ name }}</span>
+          </div>
+          <span style="font-size:12.5px;font-weight:700;color:{{ ci[2] }}">{{ pct }}%</span>
+        </div>
+        {% endfor %}
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft);display:flex;justify-content:space-between">
+          <span style="font-size:12.5px;font-weight:600;color:var(--txt-muted)">Total Procurement</span>
+          <span style="font-size:13.5px;font-weight:800;color:var(--txt-primary)">{{ total_qty|int }} q</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 2 — MARKET DEMAND
+     ══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-demand">
+  <div class="glass-card mb-20" style="padding:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:var(--txt-primary)">Procurement Volume Share &amp; Demand Status</div>
+        <div style="font-size:13px;color:var(--txt-muted);margin-top:2px">Percentage contribution and seasonal dynamics per crop</div>
+      </div>
+      <span class="badge badge-green">Production Live</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 260px;gap:24px;align-items:start">
+
+      <!-- Demand cards -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        {% set total_qty = crop.values() | sum %}
+        {% set demand_rows = [
+          ('Paddy','🌾','#059669','var(--primary-light)','var(--primary-border)','High Season','Peaks Jun–Oct · Highest procurement · Priority weighbridge booking'),
+          ('Cotton','🌿','#2563eb','var(--blue-light)','var(--blue-border)','Steady Supply','Year-round arrivals · Weighbridge required · Consistent supply quota'),
+          ('Maize','🌽','#d97706','var(--amber-light)','var(--amber-border)','Moderate Demand','Dry season peak · Rapid processing · Growing procurement volume'),
+        ] %}
+        {% for cname, icon, col, bg, brd, status, hint in demand_rows %}
+        {% set qty = crop.get(cname, 0) %}
+        {% set pct = ((qty / total_qty) * 100) | round(1) %}
+        <div class="demand-card" style="background:{{ bg }};border:1px solid {{ brd }};">
+          <div style="font-size:26px;flex-shrink:0">{{ icon }}</div>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+              <span style="font-size:14px;font-weight:800;color:var(--txt-primary)">{{ cname }}</span>
+              <span style="font-size:11px;font-weight:700;padding:2px 8px;background:#ffffff;border:1px solid {{ brd }};border-radius:99px;color:{{ col }}">{{ status }}</span>
+            </div>
+            <div style="font-size:12px;color:var(--txt-secondary);margin-bottom:8px">{{ hint }}</div>
+            <div class="mini-track" style="height:7px">
+              <div class="mini-fill demand-fill" data-pct="{{ pct }}" style="background:{{ col }}"></div>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;min-width:65px">
+            <div style="font-size:24px;font-weight:800;color:{{ col }};line-height:1">{{ pct }}</div>
+            <div style="font-size:11px;color:var(--txt-muted)">% share</div>
+            <div style="font-size:12px;font-weight:600;color:var(--txt-primary);margin-top:2px">{{ qty|int }} q</div>
+          </div>
+        </div>
+        {% endfor %}
+
+        <!-- Signal row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px">
+          {% for icon, label, val, col in [
+            ('📈','Trend','Growing Demand','green'),
+            ('🏆','Volume Leader','Paddy','amber'),
+            ('⚡','Fastest Processing','Maize','cyan'),
+          ] %}
+          <div style="padding:12px;background:var(--bg-surface-alt);border:1px solid var(--border-card);border-radius:var(--radius-md);text-align:center">
+            <div style="font-size:16px;margin-bottom:2px">{{ icon }}</div>
+            <div style="font-size:10px;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px;font-weight:600">{{ label }}</div>
+            <div style="font-size:13px;font-weight:800;color:var(--txt-primary)">{{ val }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Doughnut -->
+      <div style="background:var(--bg-surface-alt);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:18px;text-align:center">
+        <div style="position:relative;width:190px;height:190px;margin:0 auto">
+          <canvas id="demandDoughnut" width="190" height="190" style="width:190px;height:190px;display:block"></canvas>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+            <div style="font-size:10px;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600">Total Volume</div>
+            <div style="font-size:18px;font-weight:800;color:var(--txt-primary)" id="doughnut-total">—</div>
+            <div style="font-size:10px;color:var(--txt-muted)">quintals</div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          {% set total_qty = crop.values() | sum %}
+          {% for name, qty in crop | dictsort(by='value', reverse=true) %}
+          {% set col = {'Paddy':'#059669','Maize':'#d97706','Cotton':'#2563eb'}.get(name,'#7c3aed') %}
+          {% set pct = ((qty / total_qty) * 100) | round(1) %}
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:3px 8px;font-size:12px;margin-bottom:2px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <div style="width:8px;height:8px;border-radius:2px;background:{{ col }}"></div>
+              <span style="color:var(--txt-secondary)">{{ name }}</span>
+            </div>
+            <span style="font-weight:700;color:{{ col }}">{{ pct }}%</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 3 — WAIT TIMES
+     ══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-wait">
+  <div class="grid-2" style="gap:20px;align-items:start">
+
+    <!-- Bar chart -->
+    <div class="glass-card" style="padding:22px">
+      <div class="chart-title"><div class="dot" style="background:var(--amber)"></div> Average Waiting Duration by Time Slot (Minutes)</div>
+      <div class="chart-container" style="position: relative; height: 270px; width: 100%; min-width: 0;">
+        <canvas id="waitChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Rankings -->
+    <div class="glass-card" style="padding:22px">
+      <div class="section-title mb-14"><span>🏆</span> Slot Congestion Ranking</div>
+      {% set sorted_waits = waits | dictsort(by='value', reverse=true) %}
+      {% set max_wait = waits.values() | max %}
+      {% for i, (slot, wait) in sorted_waits | enumerate %}
+      {% set is_peak = (i == 0) %}
+      {% set is_med = (i > 0 and i <= 2) %}
+      {% set badge_col = 'var(--rose)' if is_peak else ('var(--amber)' if is_med else 'var(--primary)') %}
+      <div class="crop-row" style="margin-bottom:8px;padding:10px 12px">
+        <div style="
+          width:24px;height:24px;border-radius:6px;flex-shrink:0;font-size:11px;font-weight:800;
+          display:flex;align-items:center;justify-content:center;color:#ffffff;
+          background:{{ badge_col }}">
+          {{ i+1 }}
+        </div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:var(--txt-primary);margin-bottom:4px">{{ slot }}</div>
+          <div class="mini-track">
+            <div class="mini-fill" style="width:{{ (wait/max_wait*100)|round|int }}%;background:{{ badge_col }};"></div>
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;min-width:55px">
+          <span style="font-size:16px;font-weight:800;color:{{ badge_col }}">{{ wait }}</span>
+          <span style="font-size:11px;color:var(--txt-muted)"> min</span>
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Operational Tip -->
+      <div style="margin-top:14px;padding:12px 14px;background:var(--primary-light);border:1px solid var(--primary-border);border-radius:var(--radius-md)">
+        <div style="font-size:12px;font-weight:700;color:var(--primary-active);margin-bottom:2px">💡 Operational Tip</div>
+        <div style="font-size:12px;color:var(--txt-secondary);line-height:1.5">
+          Afternoon off-peak slots (14:00–16:00) demonstrate up to <strong>40% shorter queue wait times</strong>. Priority-allocate arriving farmers to these windows.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 4 — CLUSTER ANALYSIS
+     ══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-cluster">
+  <div class="glass-card mb-20" style="padding:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:16px;font-weight:800;color:var(--txt-primary)">Farmer Operational Profiles (K-Means Clustering)</div>
+        <div style="font-size:13px;color:var(--txt-muted);margin-top:2px">Unsupervised segmentation of historical procurement sessions</div>
+      </div>
+      <span class="badge badge-violet">🧬 {{ clusters|length }} Behavioral Clusters</span>
+    </div>
+
+    <!-- Cluster cards + radar side by side -->
+    <div style="display:grid;grid-template-columns:300px minmax(0, 1fr);gap:24px;align-items:center">
+
+      <!-- Cluster cards (vertical list) -->
+      <div style="display:flex;flex-direction:column;gap:10px">
+        {% set cc_list = ['#059669','#d97706','#2563eb','#7c3aed','#e11d48'] %}
+        {% set cn_list = ['Light Load','Peak Demand','Heavy Volume','Quick Service','Overflow Sessions'] %}
+        {% for r in clusters %}
+        {% set ci = loop.index0 %}
+        {% set col = cc_list[ci % 5] %}
+        <div style="
+          padding:12px 14px;
+          background:#ffffff;
+          border:1px solid var(--border-card);
+          border-left:3px solid {{ col }};
+          border-radius:var(--radius-md);
+          box-shadow:var(--shadow-xs);">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="width:22px;height:22px;border-radius:4px;background:{{ col }};color:#ffffff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">{{ r.Cluster }}</div>
+            <span style="font-size:13px;font-weight:700;color:var(--txt-primary)">{{ cn_list[ci % 5] }}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <div style="text-align:center;padding:5px;background:var(--bg-surface-alt);border-radius:4px">
+              <div style="font-size:12px;font-weight:800;color:{{ col }}">{{ r.Quantity_Quintals }}q</div>
+              <div style="font-size:9.5px;color:var(--txt-muted);font-weight:600">Qty</div>
+            </div>
+            <div style="text-align:center;padding:5px;background:var(--bg-surface-alt);border-radius:4px">
+              <div style="font-size:12px;font-weight:800;color:var(--amber)">{{ r.Waiting_Time_Minutes }}m</div>
+              <div style="font-size:9.5px;color:var(--txt-muted);font-weight:600">Wait</div>
+            </div>
+            <div style="text-align:center;padding:5px;background:var(--bg-surface-alt);border-radius:4px">
+              <div style="font-size:12px;font-weight:800;color:var(--blue)">{{ r.Actual_Farmer_Arrivals }}</div>
+              <div style="font-size:9.5px;color:var(--txt-muted);font-weight:600">Arrivals</div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Radar chart — Perfectly fitted responsive radar -->
+      <div style="background:var(--bg-surface-alt);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:20px;display:flex;align-items:center;justify-content:center;">
+        <div style="position: relative; height: 380px; width: 100%; max-width: 480px; min-width: 0;">
+          <canvas id="clusterChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     TAB 5 — INSIGHTS
+     ══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-insights">
+  <div style="display:flex;flex-direction:column;gap:16px">
+
+    <!-- Key numbers row -->
+    <div class="stat-grid" style="margin-bottom:0">
+      {% set total_qty = crop.values() | sum %}
+      {% set max_wait = waits.values() | max %}
+      {% set min_wait = waits.values() | min %}
+      <div class="stat-card green">
+        <div class="stat-icon">📦</div>
+        <div class="stat-value" data-count="{{ total_qty|int }}">0</div>
+        <div class="stat-label">Total Quintals</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-icon">⏱️</div>
+        <div class="stat-value" data-count="{{ max_wait }}" data-suffix=" m">0</div>
+        <div class="stat-label">Peak Slot Wait</div>
+      </div>
+      <div class="stat-card cyan">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-value" data-count="{{ min_wait }}" data-suffix=" m">0</div>
+        <div class="stat-label">Optimal Slot Wait</div>
+      </div>
+      <div class="stat-card violet">
+        <div class="stat-icon">🧬</div>
+        <div class="stat-value" data-count="{{ clusters|length }}">0</div>
+        <div class="stat-label">K-Means Profiles</div>
+      </div>
+    </div>
+
+    <!-- Insight cards grid -->
+    <div class="grid-3">
+      <div class="glass-card" style="padding:20px;border-top:3px solid var(--primary)">
+        <div style="font-size:24px;margin-bottom:8px">🌾</div>
+        <div style="font-size:14px;font-weight:700;color:var(--txt-primary);margin-bottom:4px">Peak Procurement Window</div>
+        <div style="font-size:12.5px;color:var(--txt-muted);line-height:1.6">
+          Paddy intake surges intensely during <strong>June–October</strong>. Station auxiliary weighbridges and double-shift clerks during this season.
+        </div>
+        <div style="margin-top:12px;padding:8px 10px;background:var(--primary-light);border-radius:6px;font-size:11.5px;font-weight:600;color:var(--primary-active)">
+          Action: Pre-assign 2 extra weighing operators
+        </div>
+      </div>
+      <div class="glass-card" style="padding:20px;border-top:3px solid var(--amber)">
+        <div style="font-size:24px;margin-bottom:8px">⚡</div>
+        <div style="font-size:14px;font-weight:700;color:var(--txt-primary);margin-bottom:4px">Queue Flattening Strategy</div>
+        <div style="font-size:12.5px;color:var(--txt-muted);line-height:1.6">
+          Routing bookings to <strong>14:00–16:00 slots</strong> mitigates congestion spikes by up to 40% and levels out mandal floor traffic.
+        </div>
+        <div style="margin-top:12px;padding:8px 10px;background:var(--amber-light);border-radius:6px;font-size:11.5px;font-weight:600;color:var(--amber)">
+          Action: Default recommendation engine to off-peak
+        </div>
+      </div>
+      <div class="glass-card" style="padding:20px;border-top:3px solid var(--violet)">
+        <div style="font-size:24px;margin-bottom:8px">🎯</div>
+        <div style="font-size:14px;font-weight:700;color:var(--txt-primary);margin-bottom:4px">Cluster-Based Capacity</div>
+        <div style="font-size:12.5px;color:var(--txt-muted);line-height:1.6">
+          K-Means segments demonstrate <strong>{{ clusters|length }} unique</strong> operational regimes. Allocate dedicated unloading bays for heavy-tonnage farmers.
+        </div>
+        <div style="margin-top:12px;padding:8px 10px;background:var(--violet-light);border-radius:6px;font-size:11.5px;font-weight:600;color:var(--violet)">
+          Action: Reserve Bay 1 for High Volume Cluster
+        </div>
+      </div>
+    </div>
+
+    <!-- Slot performance table -->
+    <div class="glass-card">
+      <div class="table-header">
+        <div class="table-title">📋 Slot-by-Slot Wait Time &amp; Load Summary</div>
+        <div class="table-count">{{ waits|length }} configured slots</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Time Slot</th>
+            <th>Avg Wait Duration</th>
+            <th>Load Classification</th>
+            <th>Operational Advice</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set max_wait = waits.values() | max %}
+          {% for slot, wait in waits | dictsort(by='value') %}
+          {% set pct = ((wait / max_wait) * 100)|round|int %}
+          <tr>
+            <td style="font-weight:600;color:var(--txt-muted)">{{ loop.index }}</td>
+            <td><strong style="color:var(--txt-primary)">{{ slot }}</strong></td>
+            <td><span style="font-weight:700;color:{% if pct > 80 %}var(--rose){% elif pct > 50 %}var(--amber){% else %}var(--primary){% endif %}">{{ wait }} min</span></td>
+            <td>
+              {% if pct > 80 %}<span class="badge badge-rose">Heavy Congestion</span>
+              {% elif pct > 50 %}<span class="badge badge-amber">Moderate Load</span>
+              {% else %}<span class="badge badge-green">Smooth Flow</span>{% endif %}
+            </td>
+            <td style="font-size:12.5px;color:var(--txt-secondary)">
+              {% if pct > 80 %}Peak slot — steer new bookings to afternoon
+              {% elif pct > 50 %}Moderate volume — monitor queue gate
+              {% else %}Optimal slot — recommended for rapid check-in{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TAB & COMPONENT STYLES ════════════════════════════════ -->
+<style>
+.tab-nav {
+  display: flex;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 6px;
+  box-shadow: var(--shadow-xs);
+  flex-wrap: wrap;
+}
+.tab-btn {
+  flex: 1; min-width: 120px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 9px 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--txt-secondary);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  font-family: inherit;
+  white-space: nowrap;
+}
+.tab-btn:hover {
+  background: var(--bg-surface-alt);
+  color: var(--txt-primary);
+}
+.tab-btn.active {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary-border);
+  font-weight: 700;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fade-in 0.25s ease both; }
+
+/* Crop Row */
+.crop-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  margin-bottom: 8px;
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  transition: all var(--t-fast);
+}
+.crop-row:hover {
+  border-color: #cbd5e1;
+  background: var(--bg-surface-alt);
+}
+
+/* Mini Progress Track */
+.mini-track {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 99px;
+  overflow: hidden;
+}
+.mini-fill {
+  height: 100%;
+  border-radius: 99px;
+  width: 0;
+  transition: width 0.8s ease;
+}
+
+/* Demand Card */
+.demand-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  transition: all var(--t-fast);
+  cursor: default;
+}
+</style>
+
+<script>
+/* ══ TAB SWITCHING ══════════════════════════════════════ */
+const chartInited = {};
+const chartInstances = {};
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+  const targetPanel = document.getElementById('panel-' + name);
+  if (targetPanel) targetPanel.classList.add('active');
+  if (btn) btn.classList.add('active');
+
+  /* lazy-init chart if needed, or trigger resize */
+  if (!chartInited[name]) {
+    chartInited[name] = true;
+    requestAnimationFrame(() => {
+      if (name === 'crop')    initCropChart();
+      if (name === 'demand')  initDemandChart();
+      if (name === 'wait')    initWaitChart();
+      if (name === 'cluster') initClusterChart();
+    });
+  } else if (chartInstances[name]) {
+    requestAnimationFrame(() => {
+      chartInstances[name].resize();
+    });
+  }
+
+  /* trigger animated fills */
+  document.querySelectorAll('#panel-' + name + ' .mini-fill').forEach(f => {
+    const w = f.dataset.pct || f.style.width || '0';
+    f.style.width = '0';
+    setTimeout(() => { f.style.width = (f.dataset.pct ? f.dataset.pct + '%' : w); }, 50);
+  });
+}
+
+/* ══ CHART DATA (from Flask) ══════════════════════════ */
+const CROP_DATA    = {{ crop    | tojson }};
+const WAITS_DATA   = {{ waits   | tojson }};
+const CLUSTER_DATA = {{ clusters | tojson }};
+
+const THEME = {
+  grid: '#f1f5f9',
+  tick: '#64748b',
+  border: '#e2e8f0',
+  tooltip: {
+    bg: '#ffffff',
+    border: '#cbd5e1',
+    title: '#0f172a',
+    body: '#334155'
+  }
+};
+
+function ttStyle(borderCol) {
+  return {
+    backgroundColor: THEME.tooltip.bg,
+    borderColor: borderCol || THEME.tooltip.border,
+    borderWidth: 1,
+    titleColor: THEME.tooltip.title,
+    bodyColor: THEME.tooltip.body,
+    padding: 10,
+    boxPadding: 4,
+    titleFont: { size: 12, weight: '700', family: 'Inter' },
+    bodyFont: { size: 12, family: 'Inter' }
+  };
+}
+
+function scaleStyle() {
+  return {
+    x: {
+      grid: { color: THEME.grid },
+      ticks: { color: THEME.tick, font: { size: 11, family: 'Inter' } },
+      border: { color: THEME.border }
+    },
+    y: {
+      grid: { color: THEME.grid },
+      ticks: { color: THEME.tick, font: { size: 11, family: 'Inter' } },
+      border: { color: THEME.border }
+    }
+  };
+}
+
+/* ══ CROP BAR CHART ══════════════════════════════════ */
+function initCropChart() {
+  const c = document.getElementById('cropChart');
+  if (!c) return;
+
+  const labels = Object.keys(CROP_DATA);
+  const values = Object.values(CROP_DATA);
+  const total  = values.reduce((a, b) => a + b, 0);
+  const bgs    = ['rgba(5, 150, 105, 0.85)', 'rgba(217, 119, 6, 0.85)', 'rgba(37, 99, 235, 0.85)'];
+  const bds    = ['#059669', '#d97706', '#2563eb'];
+
+  chartInstances['crop'] = new Chart(c.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: bgs,
+        borderColor: bds,
+        borderWidth: 1,
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...ttStyle(),
+          callbacks: {
+            label: ctx => ` Volume: ${ctx.parsed.y.toLocaleString()} q (${((ctx.parsed.y / total) * 100).toFixed(1)}%)`
+          }
+        }
+      },
+      scales: scaleStyle(),
+      animation: { duration: 800, easing: 'easeInOutQuart' }
+    }
+  });
+}
+
+/* ══ DEMAND DOUGHNUT ════════════════════════════════ */
+function initDemandChart() {
+  const c = document.getElementById('demandDoughnut');
+  if (!c) return;
+
+  const labels = Object.keys(CROP_DATA);
+  const values = Object.values(CROP_DATA);
+  const total  = values.reduce((a, b) => a + b, 0);
+  const lbl = document.getElementById('doughnut-total');
+  if (lbl) lbl.textContent = total.toLocaleString();
+
+  const colMap = {
+    Paddy:  { b: '#059669', bg: '#059669' },
+    Maize:  { b: '#d97706', bg: '#d97706' },
+    Cotton: { b: '#2563eb', bg: '#2563eb' },
+  };
+  const def = { b: '#7c3aed', bg: '#7c3aed' };
+
+  chartInstances['demand'] = new Chart(c.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map(l => (colMap[l] || def).bg),
+        borderColor: '#ffffff',
+        borderWidth: 2,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      cutout: '72%',
+      responsive: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...ttStyle(),
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${((ctx.parsed / total) * 100).toFixed(1)}% (${ctx.parsed.toLocaleString()} q)`
+          }
+        }
+      },
+      animation: { duration: 800, easing: 'easeInOutQuart' }
+    }
+  });
+}
+
+/* ══ WAIT BAR CHART ═════════════════════════════════ */
+function initWaitChart() {
+  const c = document.getElementById('waitChart');
+  if (!c) return;
+
+  const labels = Object.keys(WAITS_DATA).map(l => l.slice(0, 5));
+  const values = Object.values(WAITS_DATA);
+  const maxV   = Math.max(...values);
+
+  chartInstances['wait'] = new Chart(c.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: values.map(v => v === maxV ? 'rgba(225, 29, 72, 0.85)' : 'rgba(217, 119, 6, 0.85)'),
+        borderColor: values.map(v => v === maxV ? '#e11d48' : '#d97706'),
+        borderWidth: 1,
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...ttStyle(),
+          callbacks: { label: ctx => ` Avg Wait: ${ctx.parsed.y} mins` }
+        }
+      },
+      scales: scaleStyle(),
+      animation: { duration: 800, easing: 'easeInOutQuart' }
+    }
+  });
+}
+
+/* ══ CLUSTER RADAR ══════════════════════════════════ */
+function initClusterChart() {
+  const c = document.getElementById('clusterChart');
+  if (!c) return;
+
+  const colors = ['#059669', '#d97706', '#2563eb', '#7c3aed', '#e11d48'];
+  chartInstances['cluster'] = new Chart(c.getContext('2d'), {
+    type: 'radar',
+    data: {
+      labels: ['Avg Quantity (q)', 'Avg Wait (min)', 'Farmer Arrivals'],
+      datasets: CLUSTER_DATA.map((cl, i) => ({
+        label: 'Cluster ' + cl.Cluster,
+        data: [cl.Quantity_Quintals, cl.Waiting_Time_Minutes, cl.Actual_Farmer_Arrivals],
+        borderColor: colors[i % 5],
+        backgroundColor: colors[i % 5] + '22',
+        borderWidth: 2,
+        pointBackgroundColor: colors[i % 5],
+        pointBorderColor: '#ffffff',
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }))
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: {
+        padding: { top: 12, bottom: 12, left: 16, right: 16 }
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#334155',
+            padding: 14,
+            font: { size: 11.5, family: 'Inter', weight: '600' },
+            usePointStyle: true
+          }
+        },
+        tooltip: { ...ttStyle() }
+      },
+      scales: {
+        r: {
+          grid: { color: '#e2e8f0' },
+          ticks: { color: THEME.tick, backdropColor: 'transparent', font: { size: 10, family: 'Inter' } },
+          pointLabels: { color: '#0f172a', font: { size: 12, weight: '700', family: 'Inter' }, padding: 8 },
+          angleLines: { color: '#e2e8f0' }
+        }
+      },
+      animation: { duration: 800, easing: 'easeInOutQuart' }
+    }
+  });
+}
+
+/* ══ INIT ON LOAD ═══════════════════════════════════ */
+window.addEventListener('load', function() {
+  chartInited['crop'] = true;
+  initCropChart();
+});
+
+window.addEventListener('resize', function() {
+  Object.values(chartInstances).forEach(ch => {
+    if (ch && typeof ch.resize === 'function') ch.resize();
+  });
+});
+</script>
+{% endblock %}

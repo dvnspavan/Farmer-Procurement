@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% block title %}ML Predictions — AgroProcure{% endblock %}
+{% block page_title %}ML Forecast Engine{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-header animate-fade-up">
+  <h1>🤖 ML <span>Prediction Engine</span></h1>
+  <p>Run machine learning forecasting for arrivals, queue waiting duration, and slot congestion.</p>
+</div>
+
+<div class="grid-2 mb-24">
+
+  <!-- ══ PREDICTION FORM ══ -->
+  <div class="form-section animate-fade-up">
+    <div class="form-title">🔬 Prediction Parameters</div>
+    <div class="form-subtitle">Configure slot inputs to evaluate machine learning estimates</div>
+
+    <form method="post" id="pred-form">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">📅 Date</label>
+          <div class="form-field">
+            <span class="field-icon">📅</span>
+            <input type="date" name="date" class="form-control" value="{{ form.date }}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">🕐 Time Slot</label>
+          <select name="slot" class="form-control">
+            {% for s in slots %}
+              <option {% if s == form.slot %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">🌾 Crop Type</label>
+          <select name="crop" class="form-control">
+            {% for x in ['Paddy','Maize','Cotton'] %}
+              <option {% if x == form.crop %}selected{% endif %}>{{ x }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">⚖️ Quantity (Quintals)</label>
+          <div class="form-field">
+            <span class="field-icon">⚖️</span>
+            <input type="number" step="0.1" min="0.1" name="quantity" class="form-control" placeholder="e.g. 10.0" value="{{ form.quantity }}">
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-lg" id="pred-btn">
+          <span id="pred-btn-text">🚀 Run Forecast</span>
+        </button>
+        <button type="reset" class="btn btn-ghost">↺ Reset</button>
+      </div>
+    </form>
+
+    <!-- Model descriptions -->
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border-card)">
+      <div style="font-size:11px;font-weight:700;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">Active Prediction Pipelines</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        {% for name, icon, color, desc in [
+          ('Arrival Model','🤖','var(--primary)','Random Forest · Predicts expected farmer arrivals'),
+          ('Wait Time Model','⏱️','var(--amber)','Gradient Boosting · Estimates queue waiting time'),
+          ('Congestion Model','🌡️','var(--blue)','Classifier · Predicts Low / Medium / High congestion'),
+        ] %}
+        <div style="
+          display:flex;align-items:center;gap:10px;
+          padding:10px 14px;
+          background:var(--bg-surface-alt);
+          border:1px solid var(--border-card);border-radius:var(--radius-md);">
+          <span style="font-size:18px">{{ icon }}</span>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:var(--txt-primary)">{{ name }}</div>
+            <div style="font-size:11.5px;color:var(--txt-muted)">{{ desc }}</div>
+          </div>
+          <div style="width:7px;height:7px;border-radius:50%;background:var(--primary)"></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ OUTPUT PANEL ══ -->
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+
+    {% if output %}
+    <!-- Prediction Results -->
+    <div class="glass-card animate-fade-up" style="padding:24px">
+      <div class="section-title mb-20"><span>✨</span> Forecast Results</div>
+
+      <!-- 4 key metrics -->
+      <div class="pred-grid">
+        <div class="pred-card">
+          <div class="pred-key">🚜 Expected Arrivals</div>
+          <div class="pred-val" data-count="{{ output.arrivals }}">{{ output.arrivals }}</div>
+          <div style="font-size:11px;color:var(--txt-muted)">Farmers predicted to arrive</div>
+        </div>
+        <div class="pred-card">
+          <div class="pred-key">⏱️ ML Wait Time</div>
+          <div class="pred-val" style="color:var(--amber)" data-count="{{ output.wait }}" data-suffix=" min">{{ output.wait }} min</div>
+          <div style="font-size:11px;color:var(--txt-muted)">Predicted queue waiting</div>
+        </div>
+        <div class="pred-card">
+          <div class="pred-key">📊 Operational Est.</div>
+          <div class="pred-val" style="color:var(--blue)" data-count="{{ output.operational }}" data-suffix=" min">{{ output.operational }} min</div>
+          <div style="font-size:11px;color:var(--txt-muted)">Processing time estimate</div>
+        </div>
+        <div class="pred-card" style="border-color:{% if output.congestion=='Low' %}var(--primary-border){% elif output.congestion=='Medium' %}var(--amber-border){% else %}var(--rose-border){% endif %}">
+          <div class="pred-key">🌡️ Congestion Level</div>
+          <div style="font-size:26px;font-weight:800;margin-top:2px;
+            color:{% if output.congestion=='Low' %}var(--primary){% elif output.congestion=='Medium' %}var(--amber){% else %}var(--rose){% endif %}">
+            {{ output.congestion }}
+          </div>
+          <div style="font-size:11px;color:var(--txt-muted)">Predicted slot traffic</div>
+        </div>
+      </div>
+
+      <!-- Congestion Probability Bars -->
+      <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border-card)">
+        <div style="font-size:11.5px;font-weight:700;color:var(--txt-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">
+          Congestion Probability Distribution
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          {% for label, pct in output.probabilities.items() %}
+          {% set c_col = 'var(--primary)' if label=='Low' else ('var(--amber)' if label=='Medium' else 'var(--rose)') %}
+          <div style="display:flex;align-items:center;gap:12px;font-size:13px">
+            <div style="width:70px;font-weight:600;color:var(--txt-secondary)">{{ label }}</div>
+            <div style="flex:1;height:8px;background:var(--bg-surface-alt);border-radius:99px;overflow:hidden">
+              <div style="height:100%;width:{{ pct }}%;background:{{ c_col }};border-radius:99px;"></div>
+            </div>
+            <div style="width:45px;text-align:right;font-weight:700;color:{{ c_col }}">{{ pct }}%</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Recommendation -->
+      <div style="margin-top:18px;padding:14px;background:var(--bg-surface-alt);border:1px solid var(--border-card);border-radius:var(--radius-md)">
+        <div style="font-size:12px;font-weight:700;color:var(--txt-primary);margin-bottom:4px">💡 Decision Guidance</div>
+        <div style="font-size:12.5px;color:var(--txt-secondary);line-height:1.5">
+          {% if output.congestion == 'Low' %}
+            Optimal slot. Expected arrivals ({{ output.arrivals }}) are within baseline capacity with an estimated {{ output.wait }} min waiting time. Recommended for booking.
+          {% elif output.congestion == 'Medium' %}
+            Moderate traffic expected. {{ output.arrivals }} arrivals predicted. Farmers should be notified of ~{{ output.wait }} min processing buffer.
+          {% else %}
+            High congestion warning. {{ output.arrivals }} arrivals predicted with potential {{ output.wait }} min waiting. Steering farmers to alternate slots is advised.
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <a href="/recommend" class="btn btn-primary btn-sm">🎯 Book This Slot</a>
+      </div>
+    </div>
+
+    <!-- Chart.js Congestion Doughnut (Fitted Container) -->
+    <div class="glass-card animate-fade-up" style="padding:22px">
+      <div class="chart-title"><div class="dot"></div> Congestion Probability Visualizer</div>
+      <div class="chart-container" style="position: relative; height: 210px; width: 100%; min-width: 0;">
+        <canvas id="congChart"></canvas>
+      </div>
+    </div>
+
+    <script>
+    (function(){
+      const probs = {{ output.probabilities | tojson }};
+      const labels = Object.keys(probs);
+      const data   = Object.values(probs);
+      const colors = ['#059669', '#d97706', '#e11d48'];
+
+      const ctx = document.getElementById('congChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            backgroundColor: colors,
+            borderColor: '#ffffff',
+            borderWidth: 2,
+            hoverOffset: 6,
+          }]
+        },
+        options: {
+          cutout: '70%',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: '#475569',
+                padding: 14,
+                font: { size: 12, family: 'Inter', weight: '600' },
+                usePointStyle: true,
+              }
+            },
+            tooltip: {
+              backgroundColor: '#ffffff',
+              borderColor: '#e2e8f0',
+              borderWidth: 1,
+              titleColor: '#0f172a',
+              bodyColor: '#334155',
+              padding: 10,
+              callbacks: {
+                label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)}%`
+              }
+            }
+          }
+        }
+      });
+    })();
+    </script>
+
+    {% else %}
+    <!-- Empty / Pre-run State -->
+    <div class="glass-card" style="padding:36px;text-align:center">
+      <div style="font-size:48px;margin-bottom:14px">🤖</div>
+      <div style="font-size:17px;font-weight:800;color:var(--txt-primary);margin-bottom:6px">Ready to Simulate</div>
+      <div style="font-size:13.5px;color:var(--txt-muted);line-height:1.6;margin-bottom:20px;max-width:380px;margin-left:auto;margin-right:auto">
+        Select the target date, slot, crop type, and estimated quintal load on the left to forecast arrivals, waiting times, and congestion.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-width:340px;margin:0 auto">
+        {% for label, col in [('Arrival Count Prediction','var(--primary)'),('Queue Wait Duration','var(--amber)'),('Congestion Classification','var(--blue)')] %}
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg-surface-alt);border:1px solid var(--border-card);border-radius:var(--radius-sm)">
+          <div style="width:6px;height:6px;border-radius:50%;background:{{ col }};flex-shrink:0"></div>
+          <span style="font-size:12.5px;font-weight:600;color:var(--txt-secondary)">{{ label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Technical Note -->
+    <div class="glass-card" style="padding:16px;background:var(--bg-surface-alt);border-color:var(--border-card)">
+      <div style="font-size:12px;font-weight:700;color:var(--txt-primary);margin-bottom:4px">📌 Computational Model Note</div>
+      <div style="font-size:12px;color:var(--txt-muted);line-height:1.5">
+        Operational Estimate formula: <code>(arrivals − 1) × avg_processing ÷ machines</code>.<br>
+        Models are trained on historical mandal datasets with Cross-Validation checks.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('pred-form').addEventListener('submit', function() {
+  const btn = document.getElementById('pred-btn');
+  const txt = document.getElementById('pred-btn-text');
+  btn.disabled = true;
+  txt.textContent = '⏳ Calculating Forecast...';
+});
+</script>
+{% endblock %}

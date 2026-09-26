@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}AgroProcure — Farmer Procurement Slot & Queue Management{% endblock %}</title>
+<meta name="description" content="AI-powered procurement slot booking and queue management system for farmers. Predict arrivals, reduce waiting times, and manage queues intelligently.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=light-2.0">
+<!-- Three.js for 3D -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- Chart.js for analytics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- Professional clean background -->
+<div class="app-shell">
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-icon">🌾</div>
+      <div class="brand-text">
+        <div class="brand-name">AgroProcure</div>
+        <div class="brand-sub">Procurement Intelligence</div>
+      </div>
+    </div>
+
+    <nav>
+      {% if session.get('role') == 'farmer' %}
+        <div class="nav-section-title">{{ t.farmer_portal }}</div>
+        <a href="/farmer/dashboard" class="nav-link {{ 'active' if request.path == '/farmer/dashboard' }}">
+          <div class="nav-icon">🌾</div>
+          <span>{{ t.my_dashboard }}</span>
+        </a>
+        <a href="/recommend" class="nav-link {{ 'active' if request.path == '/recommend' }}">
+          <div class="nav-icon">🎯</div>
+          <span>{{ t.book_slot }}</span>
+        </a>
+        <a href="/live-board" target="_blank" class="nav-link">
+          <div class="nav-icon">📺</div>
+          <span>{{ t.live_board }} ↗</span>
+        </a>
+      {% else %}
+        <div class="nav-section-title">Operations</div>
+        <a href="/" class="nav-link {{ 'active' if request.path == '/' }}">
+          <div class="nav-icon">📊</div>
+          <span>{{ t.dashboard }}</span>
+        </a>
+        <a href="/recommend" class="nav-link {{ 'active' if request.path == '/recommend' }}">
+          <div class="nav-icon">🎯</div>
+          <span>{{ t.book_slot }}</span>
+        </a>
+        <a href="/queue" class="nav-link {{ 'active' if request.path == '/queue' }}">
+          <div class="nav-icon">🎟️</div>
+          <span>{{ t.queue_board }}</span>
+        </a>
+
+        <div class="nav-section-title" style="margin-top:8px">Mandi Intelligence</div>
+        <a href="/predictions" class="nav-link {{ 'active' if request.path == '/predictions' }}">
+          <div class="nav-icon">🤖</div>
+          <span>ML Predictions</span>
+        </a>
+        <a href="/analytics" class="nav-link {{ 'active' if request.path == '/analytics' }}">
+          <div class="nav-icon">📈</div>
+          <span>Analytics</span>
+        </a>
+        <a href="/live-board" target="_blank" class="nav-link">
+          <div class="nav-icon">📺</div>
+          <span>{{ t.live_board }} ↗</span>
+        </a>
+        <a href="/export/bookings" class="nav-link" title="Export queue data to CSV">
+          <div class="nav-icon">📥</div>
+          <span>Export CSV</span>
+        </a>
+      {% endif %}
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar">
+          {% if session.get('role') == 'farmer' %}🧑‍🌾{% else %}🏛️{% endif %}
+        </div>
+        <div class="user-info">
+          <div class="user-name">{{ session.get('user', 'User') }}</div>
+          <div class="user-role">
+            {% if session.get('role') == 'farmer' %}Registered Farmer{% else %}Procurement Officer{% endif %}
+          </div>
+        </div>
+        <form action="{{ url_for('logout') }}" method="post">
+          <button type="submit" class="btn-logout" title="Sign out">⎋</button>
+        </form>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN CONTENT ══ -->
+  <div class="content">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="topbar-breadcrumb">{{ t.mandi_title }}</div>
+          <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <!-- Language Switcher Pill -->
+        <a href="/set-lang/{{ 'te' if lang == 'en' else 'en' }}" class="topbar-pill" style="text-decoration:none;font-weight:700;cursor:pointer;border-color:var(--primary-border);background:var(--primary-light);color:var(--primary)" title="Click to toggle language (English / తెలుగు)">
+          <span>🌐</span>
+          <span>{{ 'తెలుగు' if lang == 'en' else 'English' }}</span>
+        </a>
+
+        <!-- Live Kiosk shortcut -->
+        <a href="/live-board" target="_blank" class="topbar-pill" style="text-decoration:none;cursor:pointer" title="Open Public TV Screen for Waiting Hall">
+          <div class="live-dot"></div>
+          <span>📺 Kiosk TV</span>
+        </a>
+
+        <div class="topbar-pill">
+          <span>🕐</span>
+          <span id="live-time">--:--</span>
+        </div>
+        <div class="topbar-pill">
+          <span>📅</span>
+          <span id="live-date">--</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Flash Messages -->
+    <div style="padding: 0 32px;">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-container" style="padding-top:16px">
+            {% for category, message in messages %}
+              <div class="alert {{ category }}">
+                {% if category == 'success' %}✅{% else %}⚠️{% endif %}
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <!-- Page Content -->
+    <div class="main-content animate-fade-in">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<!-- ══ GLOBAL SIMULATED SMS ALERT MODAL ══ -->
+<div class="sms-modal-backdrop" id="smsModal" onclick="closeSmsModal(event)">
+  <div class="sms-phone-mockup" onclick="event.stopPropagation()">
+    <div class="sms-notch"></div>
+    <div class="sms-phone-header">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:18px">🌾</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#0f172a">AgroProcure Mandi SMS</div>
+          <div style="font-size:11px;color:#64748b" id="smsPhoneNum">+91 98765 43210</div>
+        </div>
+      </div>
+      <button onclick="closeSmsModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#64748b">✕</button>
+    </div>
+    <div class="sms-body-screen">
+      <div style="text-align:center;font-size:11px;color:#94a3b8;margin-bottom:12px">Today · Direct Mandi Notification</div>
+      <div class="sms-bubble-incoming" id="smsBubbleContent">
+        Loading simulated SMS dispatch...
+      </div>
+    </div>
+    <div style="background:#f1f5f9;padding:12px 18px;text-align:center;border-top:1px solid #e2e8f0">
+      <button class="btn btn-primary btn-sm btn-block" onclick="closeSmsModal()">Done / Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showSmsPreview(tokenNumber) {
+  const modal = document.getElementById('smsModal');
+  const bubble = document.getElementById('smsBubbleContent');
+  const phone = document.getElementById('smsPhoneNum');
+  modal.classList.add('open');
+  bubble.textContent = '⏳ Retrieving live mandi SMS alert message...';
+
+  fetch(`/api/sms-preview/${tokenNumber}`)
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        bubble.textContent = data.sms_text;
+        phone.textContent = '+91 ' + data.phone;
+      } else {
+        bubble.textContent = 'Notice: Token status is being processed.';
+      }
+    })
+    .catch(err => {
+      bubble.textContent = '🌾 [AGRO-PROCURE] Mandi Notice:\nYour token #' + tokenNumber + ' has been updated.\nPlease check at the inquiry counter.';
+    });
+}
+
+function closeSmsModal(e) {
+  document.getElementById('smsModal').classList.remove('open');
+}
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   LIVE CLOCK
+   ═══════════════════════════════════════════════════ */
+function updateClock() {
+  const now = new Date();
+  const t = document.getElementById('live-time');
+  const d = document.getElementById('live-date');
+  if (t) t.textContent = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  if (d) d.textContent = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+/* ═══════════════════════════════════════════════════
+   ANIMATED COUNTERS
+   ═══════════════════════════════════════════════════ */
+function animateCounter(el) {
+  const target = parseFloat(el.dataset.count || el.textContent.replace(/[^\d.]/g, ''));
+  const suffix = el.dataset.suffix || '';
+  const duration = 1800;
+  const start = performance.now();
+  const isInt = Number.isInteger(target);
+  function step(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 4);
+    const val = target * ease;
+    el.textContent = (isInt ? Math.round(val) : val.toFixed(1)) + suffix;
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+document.querySelectorAll('[data-count]').forEach(el => {
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { animateCounter(el); obs.disconnect(); } });
+  });
+  obs.observe(el);
+});
+
+/* ═══════════════════════════════════════════════════
+   ANIMATE BAR CHARTS ON SCROLL
+   ═══════════════════════════════════════════════════ */
+const bars = document.querySelectorAll('.bar-fill[data-pct]');
+bars.forEach(bar => {
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        setTimeout(() => { bar.style.height = bar.dataset.pct + '%'; }, 100);
+        obs.disconnect();
+      }
+    });
+  });
+  bar.style.height = '0%';
+  obs.observe(bar);
+});
+
+/* ═══════════════════════════════════════════════════
+   PROGRESS RINGS
+   ═══════════════════════════════════════════════════ */
+document.querySelectorAll('.progress-ring-fill[data-pct]').forEach(ring => {
+  const r = ring.getAttribute('r') || 32;
+  const circ = 2 * Math.PI * parseFloat(r);
+  ring.setAttribute('stroke-dasharray', circ);
+  ring.setAttribute('stroke-dashoffset', circ);
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const pct = parseFloat(ring.dataset.pct) / 100;
+        ring.setAttribute('stroke-dashoffset', circ * (1 - pct));
+        obs.disconnect();
+      }
+    });
+  });
+  obs.observe(ring);
+});
+
+/* ═══════════════════════════════════════════════════
+   CONGESTION BARS
+   ═══════════════════════════════════════════════════ */
+document.querySelectorAll('.cong-fill[data-pct]').forEach(bar => {
+  bar.style.width = '0%';
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        setTimeout(() => { bar.style.width = bar.dataset.pct + '%'; }, 200);
+        obs.disconnect();
+      }
+    });
+  });
+  obs.observe(bar);
+});
+
+/* ═══════════════════════════════════════════════════
+   STAGGERED CARD ENTRANCE
+   ═══════════════════════════════════════════════════ */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if (entry.isIntersecting) {
+      entry.target.style.animationDelay = (entry.target.dataset.delay || 0) + 'ms';
+      entry.target.classList.add('animate-fade-up');
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.stat-card, .glass-card, .chart-wrapper, .form-section, .table-wrapper').forEach((el, i) => {
+  el.dataset.delay = i * 60;
+  el.style.opacity = '0';
+  observer.observe(el);
+});
+</script>
+</body>
+</html>

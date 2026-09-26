@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% block title %}Queue Board — AgroProcure{% endblock %}
+{% block page_title %}Token Queue Management{% endblock %}
+
+{% block content %}
+
+<!-- Page Header & Operational Actions -->
+<div class="page-header animate-fade-up" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+  <div>
+    <h1>🎟️ Live <span>Floor Queue Manager</span></h1>
+    <p>Monitor token progression, advance vehicles through intake bays with single-click actions, and log turnaround timestamps.</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button type="button" onclick="openOverrideModal()" class="btn btn-ghost" style="border-color:var(--amber-border);color:var(--amber);background:var(--amber-light)">
+      ⚙️ Emergency Slot Override
+    </button>
+    <a href="/export/bookings" class="btn btn-primary" title="Export complete procurement queue records to CSV">
+      📥 Export Roster to CSV
+    </a>
+  </div>
+</div>
+
+{% if rows %}
+
+<!-- ══ QUEUE SUMMARY CARDS ══ -->
+{% set booked_count = rows | selectattr('status','equalto','Booked') | list | length %}
+{% set arrived_count = rows | selectattr('status','equalto','Arrived') | list | length %}
+{% set waiting_count = rows | selectattr('status','equalto','Waiting') | list | length %}
+{% set processing_count = rows | selectattr('status','equalto','Processing') | list | length %}
+{% set completed_count = rows | selectattr('status','equalto','Completed') | list | length %}
+{% set cancelled_count = rows | selectattr('status','equalto','Cancelled') | list | length %}
+{% set total = rows | length %}
+
+<div class="stat-grid animate-fade-up">
+  <div class="stat-card green">
+    <div class="stat-icon">🎟️</div>
+    <div class="stat-value" data-count="{{ total }}">0</div>
+    <div class="stat-label">Total Tokens Issued</div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">⏳</div>
+    <div class="stat-value" data-count="{{ waiting_count + arrived_count + booked_count }}">0</div>
+    <div class="stat-label">Currently in Pipeline</div>
+  </div>
+  <div class="stat-card cyan">
+    <div class="stat-icon">⚙️</div>
+    <div class="stat-value" data-count="{{ processing_count }}">0</div>
+    <div class="stat-label">At Weighbridge / Bay</div>
+  </div>
+  <div class="stat-card violet">
+    <div class="stat-icon">✅</div>
+    <div class="stat-value" data-count="{{ completed_count }}">0</div>
+    <div class="stat-label">Completed Deliveries</div>
+  </div>
+</div>
+
+<!-- ══ QUEUE STATUS PIPELINE ══ -->
+<div class="glass-card animate-fade-up mb-24" style="padding:22px">
+  <div class="section-title mb-16"><span>🔄</span> Floor Intake Progression</div>
+  <div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 0 8px">
+    {% set stages = [
+      ('Booked', '📋', booked_count, 'var(--txt-muted)', 'var(--bg-surface-alt)', 'var(--border-card)'),
+      ('Arrived', '🚜', arrived_count, 'var(--primary)', 'var(--primary-light)', 'var(--primary-border)'),
+      ('Waiting', '⏳', waiting_count, 'var(--amber)', 'var(--amber-light)', 'var(--amber-border)'),
+      ('Processing', '⚙️', processing_count, 'var(--blue)', 'var(--blue-light)', 'var(--blue-border)'),
+      ('Completed', '✅', completed_count, 'var(--primary)', 'var(--primary-light)', 'var(--primary-border)'),
+    ] %}
+    {% for stage, icon, count, color, bg, border in stages %}
+    <div style="display:flex;align-items:center;gap:0;flex-shrink:0">
+      <div style="
+        padding:12px 18px;
+        background:{{ bg }};
+        border:1px solid {{ border }};
+        border-radius:var(--radius-md);
+        text-align:center;
+        min-width:115px;
+      ">
+        <div style="font-size:18px;margin-bottom:4px">{{ icon }}</div>
+        <div style="font-size:22px;font-weight:800;color:{{ color }}">{{ count }}</div>
+        <div style="font-size:11px;font-weight:600;color:var(--txt-secondary);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">{{ stage }}</div>
+      </div>
+      {% if not loop.last %}
+      <div style="width:28px;height:2px;background:var(--border-strong);flex-shrink:0"></div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <!-- Cancelled -->
+    <div style="display:flex;align-items:center;gap:0;flex-shrink:0">
+      <div style="width:20px;height:1px;background:var(--border-card)"></div>
+      <div style="
+        padding:12px 18px;
+        background:var(--rose-light);
+        border:1px solid var(--rose-border);
+        border-radius:var(--radius-md);text-align:center;min-width:115px">
+        <div style="font-size:18px;margin-bottom:4px">❌</div>
+        <div style="font-size:22px;font-weight:800;color:var(--rose)">{{ cancelled_count }}</div>
+        <div style="font-size:11px;font-weight:600;color:var(--rose);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Cancelled</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TOKEN TABLE WITH 1-CLICK PROGRESSION ══ -->
+<div class="table-wrapper animate-fade-up">
+  <div class="table-header">
+    <div>
+      <div class="table-title">🎟️ Queue Roster &amp; Floor Actions</div>
+      <div style="font-size:12px;color:var(--txt-muted);margin-top:2px">Click the next stage action button to automatically advance the token and record the timestamp</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <input
+        type="text"
+        id="queue-search"
+        placeholder="🔍 Search token, farmer, or village..."
+        style="
+          padding:7px 12px;
+          background:#ffffff;
+          border:1px solid var(--border-strong);
+          border-radius:var(--radius-sm);
+          color:var(--txt-primary);
+          font-size:13px;font-family:inherit;
+          width:240px;outline:none;
+        "
+        oninput="filterQueue(this.value)"
+      >
+      <div class="table-count">{{ rows | length }} records</div>
+    </div>
+  </div>
+
+  <div class="overflow-x">
+    <table id="queue-table">
+      <thead>
+        <tr>
+          <th>Token #</th>
+          <th>Farmer</th>
+          <th>Date · Slot</th>
+          <th>Consignment</th>
+          <th>Current Status</th>
+          <th>Timestamps</th>
+          <th>One-Click Progression</th>
+          <th>Pass &amp; SMS</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="queue-row" data-token="{{ r.token_number }}" data-name="{{ r.farmer_name or '' }}" data-village="{{ r.village or '' }}">
+          <td>
+            <a href="/token/{{ r.token_number }}" style="text-decoration:none">
+              <span class="token-badge" style="cursor:pointer" title="Click to view digital pass">
+                {{ r.token_number }}
+              </span>
+            </a>
+          </td>
+          <td>
+            <div style="font-weight:700;color:var(--txt-primary)">{{ r.farmer_name or 'Farmer' }}</div>
+            <div style="font-size:11.5px;color:var(--txt-muted)">
+              ID: {{ r.farmer_id }} · 📍 {{ r.village or 'Krishna' }}
+            </div>
+          </td>
+          <td>
+            <div style="font-weight:600;color:var(--txt-primary)">{{ r.date }}</div>
+            <div style="font-size:11.5px;color:var(--txt-muted);margin-top:2px">{{ r.slot }}</div>
+          </td>
+          <td>
+            <div style="font-weight:700;color:var(--txt-primary)">{{ r.quantity }} Qtl ({{ r.vehicle_type }})</div>
+            <div style="font-size:11.5px;color:var(--txt-muted)">ML Wait: ~{{ r.predicted_waiting_time | round(0) | int }}m</div>
+          </td>
+          <td>
+            {% set s = r.status %}
+            {% if s == 'Booked' %}<span class="badge badge-muted">📋 Booked</span>
+            {% elif s == 'Arrived' %}<span class="badge badge-cyan">🚜 Arrived</span>
+            {% elif s == 'Waiting' %}<span class="badge badge-amber">⏳ In Bay</span>
+            {% elif s == 'Processing' or s == 'At Weighbridge' %}<span class="badge badge-blue">⚙️ Weighing</span>
+            {% elif s == 'Completed' %}<span class="badge badge-green">✅ Completed</span>
+            {% elif s == 'Cancelled' %}<span class="badge badge-rose">❌ Cancelled</span>
+            {% else %}<span class="badge badge-muted">{{ s }}</span>{% endif %}
+          </td>
+          <td>
+            <div style="font-size:11.5px;color:var(--txt-secondary);line-height:1.4">
+              {% if r.arrival_time %}<div>🚜 Arr: <strong>{{ r.arrival_time }}</strong></div>{% endif %}
+              {% if r.service_start_time %}<div>⚖️ Wgh: <strong>{{ r.service_start_time }}</strong></div>{% endif %}
+              {% if r.completion_time %}<div>✅ Done: <strong>{{ r.completion_time }}</strong></div>{% endif %}
+              {% if not r.arrival_time and not r.service_start_time and not r.completion_time %}
+                <span style="color:var(--txt-light)">Awaiting check-in</span>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <!-- ══ SMART PROGRESSION ACTIONS ══ -->
+            {% if r.status == 'Booked' %}
+              <form action="/queue/advance" method="post" style="display:inline">
+                <input type="hidden" name="token" value="{{ r.token_number }}">
+                <input type="hidden" name="status" value="Arrived">
+                <button type="submit" class="btn btn-sm btn-primary" title="Record gate arrival">
+                  🚜 Mark Arrived
+                </button>
+              </form>
+            {% elif r.status == 'Arrived' %}
+              <form action="/queue/advance" method="post" style="display:inline">
+                <input type="hidden" name="token" value="{{ r.token_number }}">
+                <input type="hidden" name="status" value="Waiting">
+                <button type="submit" class="btn btn-sm btn-ghost" style="border-color:var(--amber);color:var(--amber)" title="Direct to waiting holding bay">
+                  ⏳ Send to Bay
+                </button>
+              </form>
+            {% elif r.status == 'Waiting' %}
+              <form action="/queue/advance" method="post" style="display:inline">
+                <input type="hidden" name="token" value="{{ r.token_number }}">
+                <input type="hidden" name="status" value="Processing">
+                <button type="submit" class="btn btn-sm btn-primary" style="background:var(--blue);border-color:var(--blue)" title="Call vehicle to weighbridge">
+                  ⚖️ Call to Weighbridge
+                </button>
+              </form>
+            {% elif r.status == 'Processing' or r.status == 'At Weighbridge' %}
+              <form action="/queue/advance" method="post" style="display:inline">
+                <input type="hidden" name="token" value="{{ r.token_number }}">
+                <input type="hidden" name="status" value="Completed">
+                <button type="submit" class="btn btn-sm btn-primary" style="background:#15803d;border-color:#15803d" title="Mark intake complete and issue payment voucher">
+                  ✅ Complete
+                </button>
+              </form>
+            {% else %}
+              <span style="font-size:12px;color:var(--txt-light)">—</span>
+            {% endif %}
+
+            <!-- Dropdown for manual override / Cancel -->
+            <form action="/queue/status" method="post" style="display:inline;margin-left:4px">
+              <input type="hidden" name="token" value="{{ r.token_number }}">
+              <select name="status" onchange="this.form.submit()" style="padding:4px 6px;font-size:11px;border-radius:4px;border:1px solid var(--border-strong);background:var(--bg-surface-alt)">
+                <option disabled selected>More...</option>
+                <option value="Booked">Reset to Booked</option>
+                <option value="Cancelled">Cancel Token</option>
+                <option value="No Show">Mark No Show</option>
+              </select>
+            </form>
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px">
+              <a href="/token/{{ r.token_number }}" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 8px" title="View digital pass & QR code">
+                🎟️ Pass
+              </a>
+              <button type="button" onclick="showSmsPreview('{{ r.token_number }}')" class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 6px" title="Simulate SMS notification sent to farmer">
+                📱 SMS
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state animate-fade-up">
+  <div class="empty-icon">🎟️</div>
+  <div class="empty-title">Queue Roster is Empty</div>
+  <div class="empty-text">No active tokens found. Book a procurement slot to dispatch your first queue token.</div>
+  <a href="/recommend" class="btn btn-primary">🎯 Book First Slot</a>
+</div>
+{% endif %}
+
+<!-- ══ EMERGENCY SLOT OVERRIDE MODAL ══ -->
+<div class="sms-modal-backdrop" id="overrideModal" onclick="closeOverrideModal(event)">
+  <div class="glass-card" onclick="event.stopPropagation()" style="width:100%;max-width:480px;background:#ffffff;padding:24px;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;border-bottom:1px solid var(--border-soft);padding-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:22px">⚙️</span>
+        <h3 style="font-size:18px;font-weight:800;color:var(--txt-primary);margin:0">Emergency Capacity Override</h3>
+      </div>
+      <button onclick="closeOverrideModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--txt-muted)">✕</button>
+    </div>
+
+    <p style="font-size:13px;color:var(--txt-muted);margin-bottom:16px">
+      Adjust intake limits for slots impacted by severe rainfall, weighbridge calibration, or additional labor crews.
+    </p>
+
+    <form method="post" action="/admin/slot-override">
+      <div class="form-group mb-12">
+        <label class="form-label">Effective Date</label>
+        <input type="date" name="date" class="form-control" value="{{ today }}">
+      </div>
+
+      <div class="form-group mb-12">
+        <label class="form-label">Time Slot</label>
+        <select name="slot" class="form-control">
+          {% for s in slots %}
+            <option value="{{ s }}">{{ s }} (Default: {{ slot_capacities[s] }} trucks)</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group mb-12">
+        <label class="form-label">New Truck Capacity</label>
+        <input type="number" name="capacity" class="form-control" value="15" min="1" max="60" required>
+      </div>
+
+      <div class="form-group mb-16">
+        <label class="form-label">Reason / Weather Note</label>
+        <select name="reason" class="form-control">
+          <option value="Severe Rainfall / Wet Holding Yard">Severe Rainfall / Wet Holding Yard</option>
+          <option value="Weighbridge Bay Maintenance">Weighbridge Bay Maintenance</option>
+          <option value="Extra Inspection Staff Deployed">Extra Inspection Staff Deployed (+Capacity)</option>
+          <option value="Mandatory Quality Calibration">Mandatory Quality Calibration</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">
+        Apply Emergency Override ➔
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+function filterQueue(val) {
+  const q = val.toLowerCase();
+  document.querySelectorAll('#queue-table tbody tr.queue-row').forEach(row => {
+    const token = (row.dataset.token || '').toLowerCase();
+    const name = (row.dataset.name || '').toLowerCase();
+    const village = (row.dataset.village || '').toLowerCase();
+    row.style.display = (token.includes(q) || name.includes(q) || village.includes(q)) ? '' : 'none';
+  });
+}
+
+function openOverrideModal() {
+  document.getElementById('overrideModal').classList.add('open');
+}
+
+function closeOverrideModal(e) {
+  document.getElementById('overrideModal').classList.remove('open');
+}
+</script>
+{% endblock %}

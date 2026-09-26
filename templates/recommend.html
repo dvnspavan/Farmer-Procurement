@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+{% block title %}Book a Slot — AgroProcure{% endblock %}
+{% block page_title %}Slot Booking &amp; Recommendation{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="page-header animate-fade-up">
+  <h1>🎯 Smart Slot <span>Booking Engine</span></h1>
+  <p>ML-driven slot evaluation recommends the optimal time window to minimize farmer waiting duration.</p>
+</div>
+
+<div class="grid-2 mb-24">
+
+  <!-- ══ BOOKING FORM ══ -->
+  <div class="form-section animate-fade-up">
+    <div class="form-title">🧑‍🌾 Farmer &amp; Load Details</div>
+    <div class="form-subtitle">Enter consignment parameters to generate optimal scheduling recommendations</div>
+
+    <form method="post" id="slot-form">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Farmer ID *</label>
+          <div class="form-field">
+            <span class="field-icon">🪪</span>
+            <input name="farmer_id" class="form-control" placeholder="e.g. FRM-2024-001" required value="{{ form.farmer_id }}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Farmer Name</label>
+          <div class="form-field">
+            <span class="field-icon">👤</span>
+            <input name="farmer_name" class="form-control" placeholder="Full name" value="{{ form.farmer_name }}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Village</label>
+          <div class="form-field">
+            <span class="field-icon">🏘️</span>
+            <input name="village" class="form-control" placeholder="Village / Mandal" value="{{ form.village }}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <div class="form-field">
+            <span class="field-icon">📅</span>
+            <input name="date" type="date" class="form-control" value="{{ form.date }}" min="{{ form.date }}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Crop Type</label>
+          <select name="crop" class="form-control">
+            {% for x in ['Paddy','Maize','Cotton'] %}
+              <option {% if form.crop == x %}selected{% endif %}>{{ x }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantity (Quintals)</label>
+          <div class="form-field">
+            <span class="field-icon">⚖️</span>
+            <input name="quantity" type="number" min="0.1" step="0.1" class="form-control" placeholder="e.g. 10.5" value="{{ form.quantity }}">
+          </div>
+        </div>
+        <div class="form-group form-col-full">
+          <label class="form-label">Vehicle Type</label>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+            {% for v in ['Tractor','Mini Truck','Auto'] %}
+            {% set is_sel = (form.vehicle == v) %}
+            <label style="
+              display:flex;align-items:center;gap:8px;padding:10px 14px;
+              background:{% if is_sel %}var(--primary-light){% else %}var(--bg-surface-alt){% endif %};
+              border:1px solid {% if is_sel %}var(--primary){% else %}var(--border-card){% endif %};
+              border-radius:var(--radius-sm);cursor:pointer;transition:all var(--t-fast);
+              font-size:13px;font-weight:600;color:var(--txt-primary);">
+              <input type="radio" name="vehicle" value="{{ v }}" {% if is_sel %}checked{% endif %} style="accent-color:var(--primary)">
+              {{ '🚜' if v=='Tractor' else '🚛' if v=='Mini Truck' else '🛺' }} {{ v }}
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-lg" id="analyse-btn">
+          <span id="analyse-text">🔍 Analyse Available Slots</span>
+        </button>
+        <button type="reset" class="btn btn-ghost">↺ Reset</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ══ INFO PANEL ══ -->
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+    <!-- How it works -->
+    <div class="glass-card" style="padding:22px">
+      <div class="section-title mb-14"><span>⚙️</span> Recommendation Methodology</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        {% for step, title, desc in [
+          ('1','Arrival Forecasting','Predicts aggregate farmer turnout for each 60-min window'),
+          ('2','Wait Time Estimation','Calculates expected queue wait based on active machines'),
+          ('3','Congestion Risk Check','Classifies slot traffic risk into Low, Medium, or High'),
+          ('4','Score Minimization','Identifies optimal slot balancing wait time and capacity'),
+        ] %}
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="
+            width:24px;height:24px;border-radius:6px;flex-shrink:0;
+            background:var(--primary);color:#ffffff;
+            font-size:11px;font-weight:800;
+            display:flex;align-items:center;justify-content:center;">{{ step }}</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--txt-primary);margin-bottom:1px">{{ title }}</div>
+            <div style="font-size:12px;color:var(--txt-muted);line-height:1.4">{{ desc }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Scoring Formula -->
+    <div class="glass-card" style="padding:20px">
+      <div class="section-title mb-10"><span>🧮</span> Slot Optimization Metric</div>
+      <div style="background:var(--bg-surface-alt);border:1px solid var(--border-card);border-radius:var(--radius-sm);padding:12px 16px;font-family:monospace;font-size:12.5px;color:var(--primary-active);line-height:1.8">
+        score = predicted_wait + (active_booked × 2) + overflow_penalty
+      </div>
+      <div style="font-size:11.5px;color:var(--txt-muted);margin-top:8px;line-height:1.5">
+        Lowest score indicates peak operational efficiency and minimum waiting for farmers.
+      </div>
+    </div>
+
+    <!-- Crop Guide -->
+    <div class="glass-card" style="padding:20px">
+      <div class="section-title mb-10"><span>🌾</span> Mandi Intake Guidelines</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        {% for crop, icon, desc in [
+          ('Paddy','🌾','Peak Jun–Oct · Dedicated moisture and weighbridge stations'),
+          ('Maize','🌽','Fast processing rate · Dry grain check required'),
+          ('Cotton','🌿','High volume weighing · Offload in Bay 3'),
+        ] %}
+        <div style="display:flex;gap:10px;align-items:center;padding:9px 12px;background:var(--bg-surface-alt);border-radius:var(--radius-sm);border:1px solid var(--border-card)">
+          <span style="font-size:18px">{{ icon }}</span>
+          <div>
+            <div style="font-size:12.5px;font-weight:700;color:var(--txt-primary)">{{ crop }}</div>
+            <div style="font-size:11.5px;color:var(--txt-muted)">{{ desc }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLOT RESULTS ══ -->
+{% if rows %}
+<div class="animate-fade-up">
+  <div class="section-title mb-16">
+    <span>📊</span> Slot Evaluation Analysis
+    {% if best %}
+      <span class="badge badge-green" style="margin-left:8px">Optimal Choice Identified</span>
+    {% endif %}
+  </div>
+
+  <!-- Slot Cards Timeline -->
+  <div class="slot-timeline mb-24">
+    {% for r in rows %}
+    <div class="slot-card {% if best and r.slot == best.slot %}best{% elif r.remaining <= 0 %}full{% endif %}">
+      {% if best and r.slot == best.slot %}
+        <div class="slot-badge-best">RECOMMENDED</div>
+      {% endif %}
+      <div class="slot-time">{{ r.slot[:5] }}</div>
+      <div class="slot-meta">{{ r.slot[6:] if ':' in r.slot[3:] else '' }}</div>
+      <div class="slot-bar-wrap">
+        <div class="slot-bar {% if r.booked/r.capacity > 0.7 %}high{% endif %}"
+             style="width:{{ (r.booked/r.capacity*100)|round(0)|int }}%"></div>
+      </div>
+      <div style="font-size:11px;color:var(--txt-muted);margin-bottom:4px">{{ r.booked }}/{{ r.capacity }} booked</div>
+      <div class="slot-remaining {% if r.remaining <= 3 %}low{% endif %}">
+        {% if r.remaining <= 0 %}Full{% else %}{{ r.remaining }} available{% endif %}
+      </div>
+      <div style="margin-top:6px">
+        {% if r.congestion == 'Low' %}
+          <span class="badge badge-green" style="font-size:9.5px">{{ r.congestion }}</span>
+        {% elif r.congestion == 'Medium' %}
+          <span class="badge badge-amber" style="font-size:9.5px">{{ r.congestion }}</span>
+        {% else %}
+          <span class="badge badge-rose" style="font-size:9.5px">{{ r.congestion }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Detailed Table -->
+  <div class="table-wrapper">
+    <div class="table-header">
+      <div>
+        <div class="table-title">📋 Slot-by-Slot Comparison</div>
+        <div style="font-size:12px;color:var(--txt-muted);margin-top:2px">Machine learning predictions combined with real-time capacity</div>
+      </div>
+      <div class="table-count">{{ rows|length }} slots</div>
+    </div>
+    <div class="overflow-x">
+      <table>
+        <thead>
+          <tr>
+            <th>Time Slot</th>
+            <th>Capacity</th>
+            <th>Booked</th>
+            <th>Available</th>
+            <th>Forecast Arrivals</th>
+            <th>ML Wait</th>
+            <th>Congestion</th>
+            <th>Score ↓</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr class="{% if best and r.slot == best.slot %}recommended{% endif %}">
+            <td>
+              <div style="font-weight:700;color:var(--txt-primary)">{{ r.slot }}</div>
+              {% if best and r.slot == best.slot %}
+                <span class="badge badge-green" style="font-size:9.5px;margin-top:4px">★ BEST CHOICE</span>
+              {% endif %}
+              {% if r.is_overridden %}
+                <div style="font-size:9.5px;font-weight:700;color:var(--amber);margin-top:2px" title="{{ r.override_reason }}">
+                  ⚠️ Adjusted: {{ r.override_reason }}
+                </div>
+              {% endif %}
+            </td>
+            <td>
+              <span style="color:var(--txt-secondary);font-weight:700">{{ r.capacity }}</span>
+              {% if r.is_overridden %}
+                <span class="badge badge-amber" style="font-size:9px;padding:1px 4px">OVERRIDE</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="flex:1;max-width:50px;height:5px;background:#e2e8f0;border-radius:99px;overflow:hidden">
+                  <div style="height:100%;width:{{ (r.booked/r.capacity*100)|round|int }}%;background:{% if r.booked/r.capacity>0.7 %}var(--rose){% else %}var(--primary){% endif %};border-radius:99px"></div>
+                </div>
+                <span style="font-weight:600">{{ r.booked }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="{% if r.remaining <= 0 %}text-rose{% elif r.remaining <= 5 %}text-amber{% else %}text-green{% endif %}" style="font-weight:700">
+                {{ r.remaining }}
+              </span>
+            </td>
+            <td><span style="font-weight:600;color:var(--blue)">{{ r.arrivals }}</span></td>
+            <td><span style="font-weight:600;color:var(--amber)">{{ r.wait }} min</span></td>
+            <td>
+              {% if r.congestion == 'Low' %}<span class="badge badge-green">Low</span>
+              {% elif r.congestion == 'Medium' %}<span class="badge badge-amber">Medium</span>
+              {% else %}<span class="badge badge-rose">High</span>{% endif %}
+            </td>
+            <td>
+              <span style="font-size:14px;font-weight:800;color:{% if best and r.slot==best.slot %}var(--primary){% else %}var(--txt-primary){% endif %}">
+                {{ r.score }}
+              </span>
+            </td>
+            <td>
+              {% if r.remaining > 0 %}
+              <form action="/book" method="post" style="display:inline">
+                {% for k, v in form.items() %}
+                  <input type="hidden" name="{{ k }}" value="{{ v }}">
+                {% endfor %}
+                <input type="hidden" name="slot" value="{{ r.slot }}">
+                <button type="submit" class="btn btn-primary btn-sm
+                  {% if best and r.slot == best.slot %}{% else %}btn-ghost{% endif %}">
+                  {% if best and r.slot == best.slot %}Book Optimal{% else %}Book{% endif %}
+                </button>
+              </form>
+              {% else %}
+              <span class="badge badge-rose">Full</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% elif request.method == 'GET' %}
+<div class="empty-state animate-fade-up" style="margin-top:16px">
+  <div class="empty-icon">🎯</div>
+  <div class="empty-title">Ready to Recommend Optimal Procurement Slot</div>
+  <div class="empty-text">Fill in the farmer details above and click "Analyse Available Slots" to generate machine learning scheduling scores.</div>
+</div>
+{% endif %}
+
+<script>
+document.getElementById('slot-form').addEventListener('submit', function() {
+  const btn = document.getElementById('analyse-btn');
+  const txt = document.getElementById('analyse-text');
+  btn.disabled = true;
+  txt.textContent = '⏳ Analysing Slots...';
+  btn.style.opacity = '0.8';
+});
+
+/* Animate slot bar widths on load */
+document.querySelectorAll('.slot-bar').forEach(bar => {
+  const w = bar.style.width;
+  bar.style.width = '0%';
+  setTimeout(() => { bar.style.width = w; bar.style.transition = 'width 0.8s ease'; }, 200);
+});
+</script>
+{% endblock %}
